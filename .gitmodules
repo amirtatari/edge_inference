@@ -1,0 +1,3 @@
+[submodule "libs/tensorflow"]
+	path = libs/tensorflow
+	url = https://github.com/tensorflow/tensorflow
