@@ -2,14 +2,14 @@
 
 #include "tensorflow/lite/kernels/register.h"
 
-#include "inference.hpp"
+#include "detector.hpp"
 
-Inference::Inference(const std::string& model_name){
+Detector::Detector(const std::string& model_name){
     // load the model into memory
     LoadModel(model_name);
 }
 
-void Inference::LoadModel(const std::string& model_name){
+void Detector::LoadModel(const std::string& model_name){
     using std::runtime_error, std::cout, std::string;
 
     const string path = MODELS_DIR + model_name;
