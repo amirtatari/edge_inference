@@ -17,7 +17,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
 endif()
 
 # define delegate type
-set(DELEGATE_TYPE "")
+#set(DELEGATE_TYPE "")
 string(TOUPPER ${DELEGATE_TYPE} DELEGATE_TYPE)
 
 # define libs directory
@@ -53,7 +53,9 @@ include_directories(
 
 add_executable(${PROJECT_NAME} 
   main.cpp 
-  base/detector.cpp)
+  base/engine.cpp
+  base/model.cpp
+)
 
 target_link_libraries(${PROJECT_NAME} 
   PRIVATE
