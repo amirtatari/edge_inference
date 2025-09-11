@@ -65,10 +65,9 @@ void Model::loadFlatBufferModel()
 
     // update the pointers to IO tensors of interpreter
     const int inTensorIdx {m_interpreterPtr->inputs()[0]};
-    //m_inputTensorPtr = std::make_unique<TfLiteTensor>(*m_interpreterPtr->tensor(inTensorIdx));
-    m_inputTensorPtr = std::unqiue_ptr<TfLiteTensor>(m_interpreterPtr->tensor(inTensorIdx));
+    m_inputTensorPtr = m_interpreterPtr->tensor(inTensorIdx);
     const int outTensorIdx {m_interpreterPtr->outputs()[0]};
-    m_outputTensorPtr = std::make_unique<TfLiteTensor>(*m_interpreterPtr->tensor(outTensorIdx));
+    m_outputTensorPtr = m_interpreterPtr->tensor(outTensorIdx);
 
     std::cout << "loadFlatBufferModel: successfully loaded the model: " << m_name << '\n';
 }
