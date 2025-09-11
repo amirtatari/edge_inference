@@ -24,8 +24,8 @@ struct Model
     std::string m_name;                                                     // model name
     std::unique_ptr<tflite::FlatBufferModel> m_faltBufferModelPtr;          // flatbuffer modfel
     std::unique_ptr<tflite::Interpreter> m_interpreterPtr;                  // tflite interpreter
-    std::unique_ptr<TfLiteTensor> m_inputTensorPtr;                         // input tensor
-    std::unique_ptr<TfLiteTensor> m_outputTensorPtr;                         // output tensor
+    TfLiteTensor* m_inputTensorPtr;                         // input tensor
+    TfLiteTensor* m_outputTensorPtr;                         // output tensor
 
 private:
     // load the flatbuffer models from file
