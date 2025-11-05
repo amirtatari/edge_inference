@@ -54,7 +54,6 @@ include_directories(
 add_executable(${PROJECT_NAME} 
   main.cpp 
   base/engine.cpp
-  base/model.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 
