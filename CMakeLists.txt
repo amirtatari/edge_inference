@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(edge_inference VERSION 1.0.0) 
+project(edge_inference VERSION 0.1.0) 
+
+# find opencv
+find_package(OpenCV REQUIRED)
 
 # define c++ standard and compiler flags
 set(CMAKE_CXX_STANDARD 20)
@@ -49,6 +52,8 @@ set_property(TARGET tflite PROPERTY IMPORTED_LOCATION "${TFLITE_DIR}/libtensorfl
 include_directories(
   ${SRC_DIRS}
   ${TF_SRC_DIR}
+  ${OpenCV_INCLUDE_DIRS}
+  ${LIBS_DIR}
 )
 
 add_executable(${PROJECT_NAME} 
@@ -59,4 +64,5 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} 
   PRIVATE
   tflite
+  ${OpenCV_LIBS}
 )
