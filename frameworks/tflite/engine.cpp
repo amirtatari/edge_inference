@@ -79,7 +79,7 @@ bool Engine::loadFlatBuffer(const char* model, const char* modelType, float conf
   }
   else if (strcmp(modelType, "YOLO") == 0)
   {
-    m_models.m_archs.push_back(ModelArch::YOLO);
+    m_models.m_archs.push_back(ModelArch::YOLO5);
   }
   else
   {
@@ -149,7 +149,7 @@ bool Engine::runObjectDetection(const Input& input)
   {
     case ModelArch::SSD:
       return runSsdPostProc(modelIdx, input.m_frame.cols, input.m_frame.rows);
-    case ModelArch::YOLO:
+    case ModelArch::YOLO5:
       return runYoloPostProc(modelIdx, input.m_frame.cols, input.m_frame.rows);
     default:
       spdlog::error("Engine::runObjectDetection: Unknown model architecture for post-processing!");
@@ -312,7 +312,7 @@ bool Engine::runSsdPostProc(std::size_t modelIdx, int originalFrameWidth, int or
       const float xmin {outputTensorData[i * 7 + 2]};
       const float ymax {outputTensorData[i * 7 + 3]};
       const float xmax {outputTensorData[i * 7 + 4]};
-      const int classId {static_cast<std::size_t>(outputTensorData[i * 7 + 5])};
+      const size_t classId {static_cast<std::size_t>(outputTensorData[i * 7 + 5])};
 
       m_objsDetected.m_classProbabilities.push_back(score);
       m_objsDetected.m_xOnes.push_back(static_cast<int>(xmin * originalFrameWidth));
