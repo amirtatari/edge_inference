@@ -44,11 +44,19 @@ endif()
 add_library(tflite SHARED IMPORTED)
 set_property(TARGET tflite PROPERTY IMPORTED_LOCATION "${TFLITE_DIR}/libtensorflow-lite.so")
 
-include_directories(
-  ${CMAKE_CURRENT_SOURCE}/frameworks/tflite
-  ${CMAKE_CURRENT_SOURCE}/frameworks/tensorRT
-  ${CMAKE_CURRENT_SOURCE}/frameworks/openVino
-  ${CMAKE_CURRENT_SOURCE}/utils/profiler
+# project src files
+add_library(project_logic
+  frameworks/tflite/engineLite.cpp
+  frameworks/tensorRT/engineRt.cpp
+  frameworks/openVino/engineVino.cpp
+  utils/profiler/profiler.cpp
+)
+
+target_include_directories(project_logic PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/frameworks/tflite
+  ${CMAKE_CURRENT_SOURCE_DIR}/frameworks/tensorRT
+  ${CMAKE_CURRENT_SOURCE_DIR}/frameworks/openVino
+  ${CMAKE_CURRENT_SOURCE_DIR}/utils/profiler
   ${TF_SRC_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${LIBS_DIR}
@@ -56,14 +64,13 @@ include_directories(
 
 add_executable(${PROJECT_NAME} 
   main.cpp 
-  frameworks/tflite/engineLite.cpp
-  frameworks/tensorRT/engineRt.cpp
-  frameworks/openVino/engineVino.cpp
-  utils/profiler/profiler.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} 
-  PRIVATE
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  project_logic
   tflite
   ${OpenCV_LIBS}
-)
+  )
+
+enable_testing()
+add_subdirectory(tests)
