@@ -12,6 +12,8 @@ namespace profiling
 using Clock = std::chrono::high_resolution_clock;
 using TimePoint = Clock::time_point;
 
+};
+
 struct Result
 {
   long long m_totalTime {0};
@@ -24,7 +26,7 @@ struct Storage
 {
   static void addData(const char* funcName, long long duration);
 
-  static void printSummery();
+  static void printSummary();
 
   static std::unordered_map<const char*, Result> m_results;
   static std::mutex m_mtx;
@@ -37,12 +39,10 @@ struct Profiler
   ~Profiler();
 
 private:
-  TimePoint m_start;
-  TimePoint m_end;
+  profiling::TimePoint m_start;
+  profiling::TimePoint m_end;
   const char* m_funcName;
 };
- 
-};
 
-inline std::undordered_map<const char*, profiler::Result> profiler::Storage::m_results;
-inline std::mutex profiler::Storage::m_mutex;
+inline std::unordered_map<const char*, Result> Storage::m_results;
+inline std::mutex Storage::m_mtx;

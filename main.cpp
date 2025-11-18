@@ -1,17 +1,12 @@
-#include "base/engine.h"
-
-#include <iostream>
+#include "frameworks/tflite/engineLite.h"
+#include "frameworks/tensorRT/engineRt.h"
+#include "frameworks/openVino/engineVino.h"
 
 int main()
 {
-    try
-    {
-        Engine engine{"/path/to/config/file"};
-    } 
-    catch(const std::exception& exp)
-    {
-        std::cerr << "main: ERROR: " << exp.what() << std::endl;
-        return 1;
-    }
-    return 0;
+  EngineLite el;
+  EngineRt er;
+  EngineVino ev;
+  
+  return 0;
 }

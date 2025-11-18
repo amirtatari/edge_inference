@@ -3,15 +3,16 @@
 #include <iostream>
 
 Profiler::Profiler(const char* funcName) noexcept 
-  : m_start {profiler::Clock::now()}
+  : m_start {profiling::Clock::now()}
+  , m_end {}
   , m_funcName {funcName}
 {}
 
 Profiler::~Profiler()
 {
-  m_end {profiler::Clock::now()};
+  m_end = profiling::Clock::now();
   auto duration {std::chrono::duration_cast<std::chrono::milliseconds>(m_end - m_start)};
-  profiler::Storage::addData(m_funcName, duration.count());
+  Storage::addData(m_funcName, duration.count());
 }
 
 double Result::calculateAverageTime() const

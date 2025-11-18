@@ -19,9 +19,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     endif()
 endif()
 
-# define delegate type
-#set(DELEGATE_TYPE "")
-string(TOUPPER ${DELEGATE_TYPE} DELEGATE_TYPE)
 
 # define libs directory
 set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
@@ -29,10 +26,8 @@ set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
 # define tflite source directory
 set(TF_SRC_DIR "${LIBS_DIR}/tensorflow_src")
 
-# define src link_directories
-set(SRC_DIRS
-  ${CMAKE_CURRENT_SOURCE}/base
-)
+# define delegate type
+string(TOUPPER ${DELEGATE_TYPE} DELEGATE_TYPE)
 
 # define tflite lib dir
 if(DELEGATE_TYPE STREQUAL "CPU")
@@ -50,7 +45,10 @@ add_library(tflite SHARED IMPORTED)
 set_property(TARGET tflite PROPERTY IMPORTED_LOCATION "${TFLITE_DIR}/libtensorflow-lite.so")
 
 include_directories(
-  ${SRC_DIRS}
+  ${CMAKE_CURRENT_SOURCE}/frameworks/tflite
+  ${CMAKE_CURRENT_SOURCE}/frameworks/tensorRT
+  ${CMAKE_CURRENT_SOURCE}/frameworks/openVino
+  ${CMAKE_CURRENT_SOURCE}/utils/profiler
   ${TF_SRC_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${LIBS_DIR}
@@ -58,7 +56,10 @@ include_directories(
 
 add_executable(${PROJECT_NAME} 
   main.cpp 
-  base/engine.cpp
+  frameworks/tflite/engineLite.cpp
+  frameworks/tensorRT/engineRt.cpp
+  frameworks/openVino/engineVino.cpp
+  utils/profiler/profiler.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} 
