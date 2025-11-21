@@ -1,6 +1,7 @@
 #include <opencv2/imgproc.hpp>
 
-
+#include <fstream>
+#include <string>
 #include <tensorflow/lite/op_resolver.h>
 #include <tensorflow/lite/kernels/register.h>
 
@@ -13,28 +14,36 @@ bool EngineLite::parseConfig(const char* configPath)
   return true;
 }
 
-bool EngineLite::loadModel(const char* modelPath, const char* classNamePath, const char* modelType, float confidence, float iou)
+bool EngineLite::loadModel(const char* modelPath, const char* classNamePath,
+                           const char* modelType, float confidence, float iou, int numClasses)
 {
-  if (!loadFlatBuffer(modelPath, modelType, confidence, iou))
+  // get flatbuffer model data
+  FlatBufferModel model;
+  if (!loadFlatBufferModel(model, modelPath, modelType, confidence, iou))
   {
     return false;
   }
-
-  if (!loadClassNames(classNamePath))
+  // get the class names
+  std::vector<const char*> classNames;
+  classNames.reserve(numClasses);
+  if (!loadClassNames(classNames, classNamePath))
   {
     return false;
   }
+  // add flatbuffer model and classNames to loaded models  
+  addLoadedModelsEntry(model, classNames);                    
   
   return true;
 }
 
-bool EngineLite::loadFlatBuffer(const char* model, const char* modelType, float confidence, float iou)
+bool EngineLite::loadTensorFlowModel(ModelData& model, const char* modelPath,
+                                     const char* modelType, float confidence, float iou)
 {
-  spdlog::info("EngineLite::loadFlatBufferPtr: loading {}", model);
+  spdlog::info("EngineLite::loadFlatBufferPtr: loading {}", modelPath);
 
   // add flatbuffer ptr to models container
-  std::unique_ptr<tflite::FlatBufferModel> flatBufferPtr = tflite::FlatBufferModel::BuildFromFile(model);
-  if(flatBufferPtr == nullptr)
+  model.m_flatBufferPtr std::move(tflite::FlatBufferModel::BuildFromFile(model));
+  if(model.m_flatBufferPtr == nullptr)
   {
     spdlog::error("EngineLite::loadFlatBuffer: could not load the flat buffer model!"); 
     return false;
@@ -85,9 +94,27 @@ bool EngineLite::loadFlatBuffer(const char* model, const char* modelType, float 
   return true;
 }
 
-bool EngineLite::loadClassNames(const char* path)
+bool EngineLite::loadClassNames(std::vector<const char*>& classNames, const char* path)
 {
-  // TODO
+  std::ifstream file(path);
+  if (!file.is_open())
+  {
+    spdlog::error("EngineLite::loadClassNames: cannot load the file at: " + path);
+    return false;
+  }
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        // Remove any trailing whitespace
+        line.erase(line.find_last_not_of(" \n\r\t") + 1);
+        if (!line.empty())
+        {
+          classNames.push_back(line);
+        } 
+    }
+    file.close();
+    
   return true;
 }
 
