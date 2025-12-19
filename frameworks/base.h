@@ -23,8 +23,7 @@ enum class ModelArch
 struct Input
 {
   cv::Mat m_frame;                                                       /// \var input frame
-  std::vector<int> m_roiXs;                                              /// \var vector of ROI poitns x coordinates
-  std::vector<int> m_roiYs;                                              /// \var vector of ROI poitns y coordinates
+  std::vector<cv::Point> m_roi;                                              /// \var vector of ROI poitns x coordinates
   std::vector<const char*> m_targets;                                    /// \var vector of target classes that need to be detected
   std::size_t m_modelIdx;                                                /// \var model index that input should run with
 };
@@ -52,9 +51,14 @@ struct DetectedSemantics
   std::vector<std::size_t> m_classNameIdxs;                              /// \var vector of indicies of vector of class name
 };
 
-struct EngineBase
+class AbsEngine
 {
-protected:
+  protected:
+
+  DetectedObjects m_odOutput;
+  DetectedSemantics m_semantics;
+
+  virtual void runNMS();
   virtual bool runObjectDetection(const Input& input) = 0;
   virtual bool runSemanticDetection(const Input& input) = 0;
   virtual bool parseConfig(const char* configPath) = 0;
