@@ -1,15 +1,10 @@
 #pragma once
 
-#include "../base.h"
+#include "base.h"
 
-struct EngineVino : public EngineBase
+struct EngineVino : public AbsEngine
 {
-  bool runObjectDetection(const Input& input) override;
-  bool runSemanticDetection(const Input& input) override;
-  bool parseConfig(const char* path) override;
-  
-  // TODO implement EngineVino
-private:
-  DetectedObjects m_objsDetected;
-  DetectedSemantics m_semanticsDetected;
+  bool runObjectDetection(const cv::Mat& frame);
+  bool runSemanticDetection(const cv::Mat& frame);
+  bool loadModel(const std::string& path);
 };

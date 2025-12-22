@@ -1,15 +1,11 @@
 #pragma once
 
-#include "../base.h"
+#include "base.h"
 
-struct EngineRt : public EngineBase
+class EngineRt : public AbsEngine
 {
-  bool runObjectDetection(const Input& input) override;
-  bool runSemanticDetection(const Input& input) override;
-  bool parseConfig(const char* path) override;
-  
-  // TODO implement other functions 
-private:
-  DetectedObjects m_objsDetected;
-  DetectedSemantics m_semanticsDetected;
+  public:
+  bool runObjectDetection(const cv::Mat& frame);
+  bool runSemanticDetection(const cv::Mat& frame);
+  bool loadModel(const std::string& path);
 };

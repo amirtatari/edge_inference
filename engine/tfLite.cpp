@@ -1,22 +1,15 @@
-#include <opencv2/imgproc.hpp>
-
-#include <fstream>
-#include <string>
-#include <tensorflow/lite/op_resolver.h>
-#include <tensorflow/lite/kernels/register.h>
-
-#include "engineLite.h"
+#include "tfLite.h"
 #include "../../utils/profiler/profiler.h"
 
-bool EngineLite::parseConfig(const char* configPath)
-{
-    // TODO
-  return true;
-}
+#include <opencv2/imgproc.hpp>
+#include <fstream>
+#include <tensorflow/lite/op_resolver.h>
+#include <tensorflow/lite/kernels/register.h>
+#include <spdlog/spdlog.h>
 
-bool EngineLite::loadModel(const char* modelPath, const char* classNamePath,
-                           const char* modelType, float confidence, float iou, int numClasses)
+bool EngineLite::loadModel(const std::string& paath)
 {
+  /*
   // get flatbuffer model data
   FlatBufferModel model;
   if (!loadFlatBufferModel(model, modelPath, modelType, confidence, iou))
@@ -31,11 +24,14 @@ bool EngineLite::loadModel(const char* modelPath, const char* classNamePath,
     return false;
   }
   // add flatbuffer model and classNames to loaded models  
-  addLoadedModelsEntry(model, classNames);                    
+  addLoadedModelsEntry(model, classNames); 
+  */
+                     
   
   return true;
 }
 
+/*
 bool EngineLite::loadTensorFlowModel(ModelData& model, const char* modelPath,
                                      const char* modelType, float confidence, float iou)
 {
@@ -117,33 +113,32 @@ bool EngineLite::loadClassNames(std::vector<const char*>& classNames, const char
     
   return true;
 }
+*/
 
-bool EngineLite::runObjectDetection(const Input& input)
+float* EngineLite::runInference(const cv::Mat& frame)
 {
-  const std::size_t modelIdx {input.m_modelIdx};
-
-  // Get model input dimensions
-  const int inputWidth {m_models.m_widths[modelIdx]};
-  const int inputHeight {m_models.m_height[modelIdx]};
-
-  // Preprocess the input frame
-  cv::Mat frame;
-  input.m_frame.copyTo(frame);
-  cv::resize(frame, frame, cv::Size(inputWidth, inputHeight));
-
-  frame.convertTo(frame, CV_32FC3, 2.0f / 255.0f, -1.0f); // Normalize to [-1, 1]
+  // resize and normalize the input frame
+  resizeAndNormalize(frame);
 
   // Copy data to input tensor
-  float* inputTensorData {m_models.m_inputTensorPtrs[modelIdx]->data.f};
-  memcpy(inputTensorData, frame.data, frame.total() * frame.elemSize());
+  memcpy(m_inputTensor->data.f, m_normalizedFrame.data, 
+         m_normalizedFrame.total() * m_normalizedFrame.elemSize());
 
   // Run inference
-  if (m_models.m_interpreterPtrs[modelIdx]->Invoke() != kTfLiteOk)
+  if (m_interpreter->Invoke() != kTfLiteOk)
   {
     spdlog::error("EngineLite::runObjectDetection: failed to invoke interpreter!");
-    return false;
+    return nullptr;
   }
 
+  return m_outputTensor->data.f;
+}
+
+
+bool EngineLite::runObjectDetection(const cv::Mat& frame)
+{
+  float* outputData{runInference(frame)};
+  /*
   // Clear previous detections
   m_objsDetected.m_classProbabilities.clear();
   m_objsDetected.m_xOnes.clear();
@@ -165,11 +160,11 @@ bool EngineLite::runObjectDetection(const Input& input)
       spdlog::error("EngineLite::runObjectDetection: Unknown model architecture for post-processing!");
       return false;
   }
-
+  */
   return true;
 }
 
-bool EngineLite::runSemanticDetection(const Input& input)
+bool EngineLite::runSemanticDetection(const cv::Mat& frame)
 {
   // TODO
   return true;

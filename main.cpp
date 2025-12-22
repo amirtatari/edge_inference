@@ -1,12 +1,7 @@
-#include "frameworks/tflite/engineLite.h"
-#include "frameworks/tensorRT/engineRt.h"
-#include "frameworks/openVino/engineVino.h"
+#include "engine/tfLite.h"
 
 int main()
 {
   EngineLite el;
-  EngineRt er;
-  EngineVino ev;
-  
   return 0;
 }

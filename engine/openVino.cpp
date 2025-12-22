@@ -1,19 +1,19 @@
-#include "engineVino.h"
-#include "../../utils/profiler/profiler.h"
+#include "openVino.h"
+#include "../utils/profiler/profiler.h"
 
-bool EngineVino::runObjectDetection(const Input& input)
+bool EngineVino::runObjectDetection(const cv::Mat& frame)
 {
   // TODO
   return true;
 }
 
-bool EngineVino::runSemanticDetection(const Input& input)
+bool EngineVino::runSemanticDetection(const cv::Mat& frame)
 {
   // TODO
   return true;
 }
 
-bool EngineVino::parseConfig(const char* configPath)
+bool EngineVino::loadModel(const std::string& path)
 {
   // TODO
   return true;
