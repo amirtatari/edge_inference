@@ -1,7 +1,8 @@
-#include "engine/tfLite.h"
+#include "testBench/testBench.h"
 
 int main()
 {
-  EngineLite el;
+  TestBenchFactory tbfactory;
+  tbfactory.start("path/to/config");
   return 0;
 }

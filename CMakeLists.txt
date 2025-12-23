@@ -30,11 +30,13 @@ include(${LIBS_DIR}/tflite/tflite.cmake)
 
 # project src files
 add_library(src STATIC
+  testBench/testBench.cpp
   engine/base.cpp
   engine/tfLite.cpp
   engine/tensorRt.cpp
   engine/openVino.cpp
   utils/profiler/profiler.cpp
+  utils/config/config.cpp
 )
 
 # create a testable library from src
@@ -43,8 +45,10 @@ target_link_libraries(src PUBLIC
   ${OpenCV_LIBS}
 )
 target_include_directories(src PUBLIC 
+  ${CMAKE_CURRENT_SOURCE_DIR}/testBench
   ${CMAKE_CURRENT_SOURCE_DIR}/engine
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/profiler
+  ${CMAKE_CURRENT_SOURCE_DIR}/utils/config
   ${LIBS_DIR}
   ${TFLITE_SOURCE_DIR}
 )
