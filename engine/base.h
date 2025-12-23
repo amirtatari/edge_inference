@@ -1,14 +1,11 @@
 #pragma once
 
+#include "../utils/config/config.h"
+
 #include <opencv2/core/mat.hpp>
 #include <vector>
 #include <string>
-
-/**
- * @brief ModelArch defines what kind of model is used and according to that what kind 
- * of post processing function we need
- */
-enum class ModelArch {SSD, YOLO5, UNKNOWN};
+#include <memory>
 
 /**
  * @brief Data structure of object detecion output 
@@ -30,36 +27,23 @@ struct DetectedSemantics
   std::vector<std::size_t> m_classNameIdxs;       /// \var class name indicies
 };
 
+/**
+ * @brief Abstract base class for inference engines
+ */
 class AbsEngine
 {
 protected:
-  cv::Mat m_resizedFrame;
-  cv::Mat m_normalizedFrame;
+  cv::Mat m_resizedFrame;                         /// \var resized input frame        
+  cv::Mat m_normalizedFrame;                      /// \var normalized input frame
 
-  DetectedObjects m_odOutput;
-  DetectedSemantics m_semantics;
+  EngineConfig m_config;                          /// \var engine configuration
+  DetectedObjects m_odOutput;                     /// \var object detection output
+  DetectedSemantics m_semantics;                  /// \var semantic segmentation output
   
-  std::vector<std::string> m_classNames;
-  float m_confidenceScore {0.0F};
-  float m_iou {0.0f};
-  int m_width {0};
-  int m_height {0};
-  int m_inputChannels {0};
-  ModelArch m_arch {ModelArch::UNKNOWN};
-
-  /**
-   * @brief runs object detection on the input frame
-   * @param frame input frame
-   * @return true if successful, false otherwise
-   */
-  virtual bool runObjectDetection(const cv::Mat& frame) = 0;
-
-  /**
-   * @brief runs semantic segmentation on the input frame
-   * @param frame input frame
-   * @return true if successful, false otherwise
-   */
-  virtual bool runSemanticDetection(const cv::Mat& frame) = 0;
+  std::vector<std::string> m_classNames;          /// \var class names
+  int m_width {0};                                /// \var model's input width      
+  int m_height {0};                               /// \var model's input height
+  int m_inputChannels {0};                        /// \var model's input channels
 
   /**
    * @brief loads the model from the given binary path
@@ -82,16 +66,45 @@ protected:
   void resizeAndNormalize(const cv::Mat& frame);
 
   /**
-   * @brief parses the configuration file
-   * @param configPath path to the xml config file
+   * @brief run post proccessing algorithm on the output tensor of a YOLOv5 model
+   * @param data pointer to the output tensor data
+   * @param frameWidth original frame width
+   * @param frameHeight original frame height
    * @return true if successful, false otherwise
    */
-  bool parseConfig(const std::string& path);
-
   bool yoloFivePostProc(void* data, int frameWidth, int frameHeight);
+
+  /**
+   * @brief run post proccessing algorithm on the output tensor of an SSD model
+   * @param data pointer to the output tensor data
+   * @param frameWidth original frame width
+   * @param frameHeight original frame height
+   * @return true if successful, false otherwise
+   */
   bool ssdPostProc(void* data, int frameWidth, int frameHeight);
 
 public:
+  /**
+   * @brief initializes the engine with the given configuration file
+   * @param configPath path to the configuration file
+   * @return true if successful, false otherwise
+   */
+  bool init(const std::string& configPath);
+
+  /**
+   * @brief runs object detection on the input frame
+   * @param frame input frame
+   * @return true if successful, false otherwise
+   */
+  virtual bool runObjectDetection(const cv::Mat& frame) = 0;
+
+  /**
+   * @brief runs semantic segmentation on the input frame
+   * @param frame input frame
+   * @return true if successful, false otherwise
+   */
+  virtual bool runSemanticDetection(const cv::Mat& frame) = 0;
+
   virtual ~AbsEngine() = default;
 };
 

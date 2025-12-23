@@ -11,12 +11,6 @@ bool AbsEngine::loadClassNames(const std::string& path)
   return true;
 }
 
-bool AbsEngine::parseConfig(const std::string& path)
-{
-  // TODO
-  return true;
-}
-
 /* ------------------------------- Pre Processing ------------------------------------ */
 
 void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
@@ -202,5 +196,30 @@ bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
     }
   }
   */
+  return true;
+}
+
+bool AbsEngine::init(const std::string& configPath)
+{
+  if (!m_config.parseConfigFile(configPath))
+  {
+    spdlog::error("AbsEngine::init: could not parse config file: {}", configPath);
+    return false;
+  }
+
+  if (!loadModel(m_config.m_modelPath))
+  {
+    spdlog::error("AbsEngine::init: could not load model from path: {}", 
+      m_config.m_modelPath);
+    return false;
+  }
+
+  if (!loadClassNames(m_config.m_classNamesPath))
+  {
+    spdlog::error("AbsEngine::init: could not load class names from path: {}", 
+      m_config.m_classNamesPath);
+    return false;
+  }
+
   return true;
 }
