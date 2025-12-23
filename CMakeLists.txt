@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(edge_inference VERSION 0.1.0) 
+project(edge_inference VERSION 0.2.0) 
 
 # define c++ standard and compiler flags
 set(CMAKE_CXX_STANDARD 20)
