@@ -1,35 +1,27 @@
-# Base image
-FROM ubuntu:22.04
+################################################
+# Build Image
+#################################################
+FROM ubuntu:22.04 AS builder
 
-# set work dir
-WORKDIR /tflite_test
+# Prevent interactive prompts from apt (e.g., asking for timezone)
+ENV DEBIAN_FRONTEND=noninteractive
 
-# install packages
+# install required packages
 RUN apt update && apt install -y \
     build-essential \ 
     cmake \
-    git \
-    wget \
-    nano \
-    python3
-
-# change the working dir
-RUN pwd
-
-# Clone TensorFlow repository
-RUN git clone https://github.com/tensorflow/tensorflow.git
+    libopencv-dev \
+    libgtest-dev \
+    && rm -rvf /var/lib/apt/lists/*
+    
 
 # copy the files into working dir
-COPY main.cpp .
-COPY CMakeLists.txt .
-
+COPY . .
 
 # create build dir and build project
 RUN mkdir build && cd build && \
-    cmake .. && \
-    cmake --build .
+    cmake -DCMAKE_BUILD_TYPE=RELEASE -DDELEGATE_TYPE=CPU .. && \
+    make -j$(nproc)
 
-COPY model.tflite .
-
-# start the app
-CMD ["./build/inference"]
+# run the tests
+RUN ctest --output-on-failure -j$(nproc)

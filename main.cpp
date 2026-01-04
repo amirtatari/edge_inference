@@ -1,11 +1,8 @@
-#include "base/detector.hpp"
+#include "testBench/testBench.h"
 
-int main(){
-    try{
-        Detector detector{"model.tflite"};
-    } catch(const std::exception& exp){
-        std::cerr << "main: ERROR: " << exp.what() << std::endl;
-        return 1;
-    }
-    return 0;
+int main()
+{
+  TestBenchFactory tbfactory;
+  tbfactory.start("path/to/config");
+  return 0;
 }
