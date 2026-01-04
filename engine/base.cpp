@@ -3,7 +3,8 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
-#include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 bool AbsEngine::loadClassNames(const std::string& path)
 {
