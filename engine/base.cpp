@@ -42,54 +42,28 @@ void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
 }
 
 /* ------------------------------- Post Processing ------------------------------------ */
-/**
-  * This method processes the output tensor of a YOLOv5 model.
-  *
-  * It assumes the output tensor is structured as follows:
-  * Shape: [1, num_boxes, 85] (assuming 80 classes)
-  * Each detection (row) contains 85 float values:
-  * [x, y, w, h, objectness_score, class_prob_0, class_prob_1, ..., class_prob_79]
-  *
-  * - `x, y, w, h`: Bounding box center coordinates (x, y) and dimensions (width, height).
-  *   These are normalized values (0.0 to 1.0) and need to be scaled back to original frame dimensions.
-  * - `objectness_score`: A confidence score indicating the probability that an object exists in this box.
-  * - `class_prob_0` to `class_prob_79`: Probabilities for each possible class.
-  *
-  * Post-processing typically involves:
-  * - Filtering detections by `objectness_score` and `class_probabilities` thresholds.
-  * - Applying Non-Maximum Suppression (NMS) to remove redundant overlapping boxes.
-  * - Scaling bounding box coordinates to the original frame size.
-  */
-bool AbsEngine::yoloFivePostProc(void* data, int frameWidth, int frameHeight)
+/* 
+  yolo v5 output shape: [1, num_boxes, 5 + num_classes]
+  box-format: [x_center, y_center, width, height, objectness, class_probs...]
+*/
+ bool AbsEngine::yoloFivePostProc(void* data, int frameWidth, int frameHeight)
 {
-  // TODO
-
-  
-  /*
-  //const float* outputTensorData {m_models.m_outputTensorPtrs[modelIdx]->data.f};
-  //const auto* outputDims = m_models.m_outputTensorPtrs[modelIdx]->dims;
-  const float* outputTensorData = nullptr;
-  //const auto* outputDims = nullptr;
-  const float* outputDims = nullptr;
-  const int num_boxes = 0; //outputDims->data[1];
-  const int num_classes_plus_box = 0; // outputDims->data[2];
-  const int num_classes = num_classes_plus_box - 5;
+  const float* outputTensorData {static_cast<const float*>(data)};
+  const int num_classes {static_cast<int>(m_classNames.size())};
 
   std::vector<cv::Rect> boxes;
   std::vector<float> scores;
   std::vector<int> class_ids;
 
-  const float confidence_threshold{0.0};// = m_models.m_confidences[modelIdx];
-
-  for (int i = 0; i < num_boxes; ++i)
+  for (int i {0}; i < m_numBoxes; ++i)
   {
-    const float objectness_score = outputTensorData[i * num_classes_plus_box + 4];
-    if (objectness_score > confidence_threshold)
+    const float objectness_score {outputTensorData[i * (num_classes + 5) + 4]};
+    if (objectness_score > m_config.m_confidenceThreshold)
     {
-      const float* class_probabilities = &outputTensorData[i * num_classes_plus_box + 5];
-      int best_class_id = -1;
-      float best_class_score = 0.0f;
-      for (int j = 0; j < num_classes; ++j)
+      const float* class_probabilities {&outputTensorData[i * (num_classes + 5) + 5]};
+      int best_class_id {-1};
+      float best_class_score {0.0f};
+      for (int j {0}; j < num_classes; ++j)
       {
         if (class_probabilities[j] > best_class_score)
         {
@@ -98,126 +72,189 @@ bool AbsEngine::yoloFivePostProc(void* data, int frameWidth, int frameHeight)
         }
       }
 
-      if (best_class_score > confidence_threshold)
+      const float combined_score {objectness_score * best_class_score};
+      if (combined_score > m_config.m_confidenceThreshold)
       {
-        const float x_center = outputTensorData[i * num_classes_plus_box + 0];
-        const float y_center = outputTensorData[i * num_classes_plus_box + 1];
-        const float width = outputTensorData[i * num_classes_plus_box + 2];
-        const float height = outputTensorData[i * num_classes_plus_box + 3];
+        const float x_center {outputTensorData[i * (num_classes + 5) + 0]};
+        const float y_center {outputTensorData[i * (num_classes + 5) + 1]};
+        const float width {outputTensorData[i * (num_classes + 5) + 2]};
+        const float height {outputTensorData[i * (num_classes + 5) + 3]};
 
-        const int x1 = static_cast<int>((x_center - width / 2.0f) * frameWidth);
-        const int y1 = static_cast<int>((y_center - height / 2.0f) * frameHeight);
-        const int w = static_cast<int>(width * frameWidth);
-        const int h = static_cast<int>(height * frameHeight);
+        const int x1 {static_cast<int>((x_center - width / 2.0f) * frameWidth)};
+        const int y1 {static_cast<int>((y_center - height / 2.0f) * frameHeight)};
+        const int w {static_cast<int>(width * frameWidth)};
+        const int h {static_cast<int>(height * frameHeight)};
 
         boxes.emplace_back(x1, y1, w, h);
-        scores.push_back(objectness_score * best_class_score); // Use combined score
+        scores.push_back(combined_score);
         class_ids.push_back(best_class_id);
       }
     }
   }
 
-  // Custom Non-Maximum Suppression
-  const float iou_threshold {0.0};// = m_models.m_IoUs[modelIdx];
-  std::vector<int> nms_indices;
+  applyNms(boxes, scores, class_ids);
+  return true;
+}
 
-  if (!scores.empty()) {
-    std::vector<int> indices(scores.size());
-    std::iota(indices.begin(), indices.end(), 0);
+/*
+  yolo v8 output shape: [1, 4 + num_classes, num_boxes] (transposed)
+  box-format: [x_center, y_center, width, height, class_probs...]
+*/
+bool AbsEngine::yoloEightPostProc(void* data, int frameWidth, int frameHeight)
+{
+  const float* outputTensorData {static_cast<const float*>(data)};
+  const int num_classes {static_cast<int>(m_classNames.size())};
 
-    std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-      return scores[a] > scores[b];
-    });
+  std::vector<cv::Rect> boxes;
+  std::vector<float> scores;
+  std::vector<int> class_ids;
 
-    while (!indices.empty()) {
-      int current_idx = indices[0];
-      nms_indices.push_back(current_idx);
+  // yolov8 output is transposed: [1, 4 + num_classes, num_boxes]
+  for (int i {0}; i < m_numBoxes; ++i)
+  {
+    int best_class_id {-1};
+    float best_class_score {0.0f};
 
-      std::vector<int> remaining_indices;
-      for (size_t i = 1; i < indices.size(); ++i) {
-        int other_idx = indices[i];
-        
-        // Calculate IoU
-        const cv::Rect& box1 = boxes[current_idx];
-        const cv::Rect& box2 = boxes[other_idx];
-        const int x1 = std::max(box1.x, box2.x);
-        const int y1 = std::max(box1.y, box2.y);
-        const int x2 = std::min(box1.x + box1.width, box2.x + box2.width);
-        const int y2 = std::min(box1.y + box1.height, box2.y + box2.height);
-        const int intersection_area = std::max(0, x2 - x1) * std::max(0, y2 - y1);
-        const int box1_area = box1.width * box1.height;
-        const int box2_area = box2.width * box2.height;
-        const float union_area = box1_area + box2_area - intersection_area;
-        const float iou = (union_area == 0) ? 0.0f : static_cast<float>(intersection_area) / union_area;
-
-        if (iou < iou_threshold) {
-          remaining_indices.push_back(other_idx);
-        }
+    for (int j {0}; j < num_classes; ++j)
+    {
+      // access transposed class probabilities
+      const float score {outputTensorData[(4 + j) * m_numBoxes + i]};
+      if (score > best_class_score)
+      {
+        best_class_score = score;
+        best_class_id = j;
       }
-      indices = remaining_indices;
+    }
+
+    if (best_class_score > m_config.m_confidenceThreshold)
+    {
+      const float x_center {outputTensorData[0 * m_numBoxes + i]};
+      const float y_center {outputTensorData[1 * m_numBoxes + i]};
+      const float width {outputTensorData[2 * m_numBoxes + i]};
+      const float height {outputTensorData[3 * m_numBoxes + i]};
+
+      const int x1 {static_cast<int>((x_center - width / 2.0f) * frameWidth)};
+      const int y1 {static_cast<int>((y_center - height / 2.0f) * frameHeight)};
+      const int w {static_cast<int>(width * frameWidth)};
+      const int h {static_cast<int>(height * frameHeight)};
+
+      boxes.emplace_back(x1, y1, w, h);
+      scores.push_back(best_class_score);
+      class_ids.push_back(best_class_id);
     }
   }
 
-  for (int idx : nms_indices)
+  applyNms(boxes, scores, class_ids);
+  return true;
+}
+
+/*
+  yolo v10 is nms-free, output shape: [1, num_boxes, 6] 
+  box-format: [xmin, ymin, xmax, ymax, score, class_id]
+*/
+bool AbsEngine::yoloTenPostProc(void* data, int frameWidth, int frameHeight)
+{
+  const float* outputTensorData {static_cast<const float*>(data)};
+  // yolov10 is nms-free, typically outputs [1, 300, 6] 
+  // format: [xmin, ymin, xmax, ymax, score, class_id]
+
+  m_odOutput.m_classProbabilities.clear();
+  m_odOutput.m_firstPoints.clear();
+  m_odOutput.m_secondPoints.clear();
+  m_odOutput.m_classNameIdxs.clear();
+
+  for (int i {0}; i < m_numBoxes; ++i)
   {
-    const cv::Rect& box = boxes[idx];
-    m_objsDetected.m_classProbabilities.push_back(scores[idx]);
-    m_objsDetected.m_xOnes.push_back(box.x);
-    m_objsDetected.m_yOnes.push_back(box.y);
-    m_objsDetected.m_xTwos.push_back(box.x + box.width);
-    m_objsDetected.m_yTwos.push_back(box.y + box.height);
-    m_objsDetected.m_classNameIdxs.push_back(class_ids[idx]);
+    const float score {outputTensorData[i * 6 + 4]};
+    if (score > m_config.m_confidenceThreshold)
+    {
+      const float x1 {outputTensorData[i * 6 + 0]};
+      const float y1 {outputTensorData[i * 6 + 1]};
+      const float x2 {outputTensorData[i * 6 + 2]};
+      const float y2 {outputTensorData[i * 6 + 3]};
+      const int class_id {static_cast<int>(outputTensorData[i * 6 + 5])};
+
+      m_odOutput.m_classProbabilities.push_back(score);
+      m_odOutput.m_firstPoints.emplace_back(static_cast<int>(x1 * frameWidth), 
+                                            static_cast<int>(y1 * frameHeight));
+      m_odOutput.m_secondPoints.emplace_back(static_cast<int>(x2 * frameWidth), 
+                                             static_cast<int>(y2 * frameHeight));
+      m_odOutput.m_classNameIdxs.push_back(static_cast<std::size_t>(class_id));
+    }
   }
-  */
 
   return true;
 }
 
-/**
-  *
-  * It assumes the output tensor is structured as follows:
-  * Shape: [1, num_detections, 7]
-  * Each detection (row) contains 7 float values:
-  * [batch_id, ymin, xmin, ymax, xmax, class_id, score]
-  *
-  * - `batch_id`: Index of the image in the batch (typically 0 for single image inference).
-  * - `ymin, xmin, ymax, xmax`: Normalized bounding box coordinates (0.0 to 1.0)
-  *   representing the top-left (ymin, xmin) and bottom-right (ymax, xmax) corners.
-  *   These are scaled back to original frame dimensions for `m_objsDetected`.
-  * - `class_id`: The integer ID of the detected object's class.
-  * - `score`: The confidence score (probability) of the detection.
-  *
-  * Data is accessed using `outputTensorData[i * 7 + index]`, where `i` is the detection index
-  * and `index` corresponds to the position within the 7-value detection array.
-  */
+float AbsEngine::calculateIoU(const cv::Rect& box1, const cv::Rect& box2)
+{
+  const int x1 {std::max(box1.x, box2.x)};
+  const int y1 {std::max(box1.y, box2.y)};
+  const int x2 {std::min(box1.x + box1.width, box2.x + box2.width)};
+  const int y2 {std::min(box1.y + box1.height, box2.y + box2.height)};
+        
+  const int intersection_area {std::max(0, x2 - x1) * std::max(0, y2 - y1)};
+  const int box1_area {box1.width * box1.height};
+  const int box2_area {box2.width * box2.height};
+  const float union_area {static_cast<float>(
+    box1_area + box2_area - intersection_area)
+  };
+
+  return (union_area == 0) ? 0.0f : static_cast<float>(intersection_area) / union_area;
+}
+
+void AbsEngine::applyNms(const std::vector<cv::Rect>& boxes, 
+                        const std::vector<float>& scores,
+                        const std::vector<int>& classIds)
+{
+  std::vector<int> nms_indices;
+  if (!scores.empty())
+  {
+    std::vector<int> indices(scores.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    std::sort(indices.begin(), indices.end(),
+              [&](int a, int b) { return scores[a] > scores[b]; });
+
+    while (!indices.empty())
+    {
+      int current_idx {indices[0]};
+      nms_indices.push_back(current_idx);
+
+      std::vector<int> remaining_indices;
+      for (size_t i {1}; i < indices.size(); ++i)
+      {
+        int other_idx {indices[i]};
+
+        const cv::Rect& box1 {boxes[current_idx]};
+        const cv::Rect& box2 {boxes[other_idx]};
+
+        if (calculateIoU(box1, box2) < m_config.m_iouThreshold)
+          remaining_indices.push_back(other_idx);
+      }
+      indices = std::move(remaining_indices);
+    }
+  }
+
+  m_odOutput.m_classProbabilities.clear();
+  m_odOutput.m_firstPoints.clear();
+  m_odOutput.m_secondPoints.clear();
+  m_odOutput.m_classNameIdxs.clear();
+
+  for (int idx : nms_indices)
+  {
+    const cv::Rect& box {boxes[idx]};
+    m_odOutput.m_classProbabilities.push_back(scores[idx]);
+    m_odOutput.m_firstPoints.emplace_back(box.x, box.y);
+    m_odOutput.m_secondPoints.emplace_back(box.x + box.width, box.y + box.height);
+    m_odOutput.m_classNameIdxs.push_back(static_cast<std::size_t>(classIds[idx]));
+  }
+}
+
+
 bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
 {
   // TODO
-
-  /*
-  const float* outputTensorData {m_models.m_outputTensorPtrs[modelIdx]->data.f};
-  const int numDetections {m_models.m_outputTensorPtrs[modelIdx]->dims->data[1]};
-
-  for (int i = 0; i < numDetections; ++i)
-  {
-    const float score {outputTensorData[i * 7 + 6]};
-    if (score > m_models.m_confidences[modelIdx])
-    {
-      const float ymin {outputTensorData[i * 7 + 1]};
-      const float xmin {outputTensorData[i * 7 + 2]};
-      const float ymax {outputTensorData[i * 7 + 3]};
-      const float xmax {outputTensorData[i * 7 + 4]};
-      const size_t classId {static_cast<std::size_t>(outputTensorData[i * 7 + 5])};
-
-      m_objsDetected.m_classProbabilities.push_back(score);
-      m_objsDetected.m_xOnes.push_back(static_cast<int>(xmin * originalFrameWidth));
-      m_objsDetected.m_yOnes.push_back(static_cast<int>(ymin * originalFrameHeight));
-      m_objsDetected.m_xTwos.push_back(static_cast<int>(xmax * originalFrameWidth));
-      m_objsDetected.m_yTwos.push_back(static_cast<int>(ymax * originalFrameHeight));
-      m_objsDetected.m_classNameIdxs.push_back(classId);
-    }
-  }
-  */
   return true;
 }
 

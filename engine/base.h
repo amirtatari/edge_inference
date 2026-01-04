@@ -44,6 +44,7 @@ protected:
   int m_width {0};                                /// \var model's input width      
   int m_height {0};                               /// \var model's input height
   int m_inputChannels {0};                        /// \var model's input channels
+  int m_numBoxes {0};                             /// \var number of candidate boxes
 
   /**
    * @brief loads the model from the given binary path
@@ -75,6 +76,24 @@ protected:
   bool yoloFivePostProc(void* data, int frameWidth, int frameHeight);
 
   /**
+   * @brief run post proccessing algorithm on the output tensor of a YOLOv8 model
+   * @param data pointer to the output tensor data
+   * @param frameWidth original frame width
+   * @param frameHeight original frame height
+   * @return true if successful, false otherwise
+   */
+  bool yoloEightPostProc(void* data, int frameWidth, int frameHeight);
+
+  /**
+   * @brief run post proccessing algorithm on the output tensor of a YOLOv10 model
+   * @param data pointer to the output tensor data
+   * @param frameWidth original frame width
+   * @param frameHeight original frame height
+   * @return true if successful, false otherwise
+   */
+  bool yoloTenPostProc(void* data, int frameWidth, int frameHeight);
+
+  /**
    * @brief run post proccessing algorithm on the output tensor of an SSD model
    * @param data pointer to the output tensor data
    * @param frameWidth original frame width
@@ -82,6 +101,23 @@ protected:
    * @return true if successful, false otherwise
    */
   bool ssdPostProc(void* data, int frameWidth, int frameHeight);
+
+  /**
+   * @brief applies non-maximum suppression to filter overlapping boxes
+   * @param boxes vector of bounding boxes
+   * @param scores vector of confidence scores
+   * @param classIds vector of class indices
+   */
+  void applyNms(const std::vector<cv::Rect>& boxes, const std::vector<float>& scores,
+                const std::vector<int>& classIds);
+  
+  /**
+   * @brief calculates Intersection over Union (IoU) between two boxes
+   * @param box1 first bounding box
+   * @param box2 second bounding box
+   * @return IoU value
+   */
+  float calculateIoU(const cv::Rect& box1, const cv::Rect& box2);
 
 public:
   /**

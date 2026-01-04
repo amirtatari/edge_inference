@@ -16,7 +16,7 @@ enum class TestBenchType {OBJECT_DETECTION, SEMANTIC_SEGMENTATION, UNKNOWN};
  * @brief ModelArch defines what kind of model is used and according to that what kind 
  * of post processing function we need
  */
-enum class ModelArch {SSD, YOLO5, UNKNOWN};
+enum class ModelArch {SSD, YOLO5, YOLOV8, YOLO10, UNKNOWN};
 
 /**
  * @brief EngineConfig holds the configuration parameters for the inference engine
