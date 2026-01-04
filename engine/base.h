@@ -103,6 +103,18 @@ protected:
   bool ssdPostProc(void* data, int frameWidth, int frameHeight);
 
   /**
+   * @brief run post proccessing algorithm for semantic segmentation model
+   * @param data pointer to the output tensor data
+   * @param outW output tensor width
+   * @param outH output tensor height
+   * @param numClasses number of classes
+   * @param frameWidth original frame width
+   * @param frameHeight original frame height
+   */
+  void semanticPostProc(void* data, int outW, int outH, int numClasses,
+                        int frameWidth, int frameHeight);
+
+  /**
    * @brief applies non-maximum suppression to filter overlapping boxes
    * @param boxes vector of bounding boxes
    * @param scores vector of confidence scores

@@ -282,3 +282,40 @@ bool AbsEngine::init(const std::string& configPath)
 
   return true;
 }
+
+void AbsEngine::semanticPostProc(void* data, int outW, int outH, int numClasses,
+                                  int frameWidth, int frameHeight)
+{
+  const float* outputData {static_cast<const float*>(data)};
+  
+  // reserve memory for performance
+  m_semantics.m_pixels.reserve(outH * outW);
+  m_semantics.m_classNameIdxs.reserve(outH * outW);
+
+  for (int y {0}; y < outH; ++y)
+  {
+    for (int x {0}; x < outW; ++x)
+    {
+      // iterate thorugh all classes to find the max probability
+      float maxProb {-1.0f};
+      int maxIdx {-1};
+
+      for (int c {0}; c < numClasses; ++c)
+      {
+        float prob {outputData[(y * outW + x) * numClasses + c]};
+        if (prob > maxProb)
+        {
+          maxProb = prob;
+          maxIdx = c;
+        }
+      }
+
+      // scale points back to original frame size
+      const int origX {static_cast<int>(static_cast<float>(x) / outW * frameWidth)};
+      const int origY {static_cast<int>(static_cast<float>(y) / outH * frameHeight)};
+
+      m_semantics.m_pixels.emplace_back(origX, origY);
+      m_semantics.m_classNameIdxs.push_back(static_cast<std::size_t>(maxIdx));
+    }
+  }
+}

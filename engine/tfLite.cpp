@@ -49,8 +49,9 @@ bool EngineLite::loadModel(const std::string& path)
   }
   else
   {
-    spdlog::warn("EngineLite::loadModel: unexpected input tensor dimension size: {}",
+    spdlog::error("EngineLite::loadModel: unexpected input tensor dimension size: {}",
                  m_inputTensor->dims->size);
+    return false;
   } 
 
   return true;
@@ -61,18 +62,12 @@ float* EngineLite::runInference(const cv::Mat& frame)
   // resize and normalize the input frame
   resizeAndNormalize(frame);
 
-  // Copy data to input tensor
+  // copy data to input tensor
   memcpy(m_inputTensor->data.f, m_normalizedFrame.data, 
          m_normalizedFrame.total() * m_normalizedFrame.elemSize());
 
-  // Run inference
-  if (m_interpreter->Invoke() != kTfLiteOk)
-  {
-    spdlog::error("EngineLite::runObjectDetection: failed to invoke interpreter!");
-    return nullptr;
-  }
-
-  return m_outputTensor->data.f;
+  // run inference
+  return m_interpreter->Invoke() != kTfLiteOk ? nullptr : m_outputTensor->data.f;
 }
 
 
@@ -104,6 +99,19 @@ bool EngineLite::runObjectDetection(const cv::Mat& frame)
 bool EngineLite::runSemanticDetection(const cv::Mat& frame)
 {
   float* outputData {runInference(frame)};
-  // TODO post processing for semantic segmentation
+  if (outputData == nullptr)
+  {
+    spdlog::error("EngineLite::runSemanticDetection: inference failed");
+    return false;
+  }
+
+  // get output tensor dimensions
+  const int outH {m_outputTensor->dims->data[1]};
+  const int outW {m_outputTensor->dims->data[2]};
+  const int numClasses {m_outputTensor->dims->data[3]};
+
+  semanticPostProc(outputData, outW, outH, numClasses, frame.cols, frame.rows);
+
   return true;
 }
+
