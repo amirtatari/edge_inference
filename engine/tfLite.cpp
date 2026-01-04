@@ -56,32 +56,6 @@ bool EngineLite::loadModel(const std::string& path)
   return true;
 }
 
-/*
-bool EngineLite::loadClassNames(std::vector<const char*>& classNames, const char* path)
-{
-  std::ifstream file(path);
-  if (!file.is_open())
-  {
-    spdlog::error("EngineLite::loadClassNames: cannot load the file at: " + path);
-    return false;
-  }
-
-    std::string line;
-    while (std::getline(file, line))
-    {
-        // Remove any trailing whitespace
-        line.erase(line.find_last_not_of(" \n\r\t") + 1);
-        if (!line.empty())
-        {
-          classNames.push_back(line);
-        } 
-    }
-    file.close();
-    
-  return true;
-}
-*/
-
 float* EngineLite::runInference(const cv::Mat& frame)
 {
   // resize and normalize the input frame

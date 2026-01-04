@@ -3,12 +3,33 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
+#include <fstream>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
 bool AbsEngine::loadClassNames(const std::string& path)
 {
-  // TODO
+  std::ifstream file(path);
+  if (!file.is_open())
+  {
+    spdlog::error("AbsEngine::loadClassNames: could not open file: {}", path);
+    return false;
+  }
+
+  m_classNames.clear();
+  std::string line;
+  while (std::getline(file, line))
+  {
+    // remove any trailing whitespace
+    line.erase(line.find_last_not_of(" \n\r\t") + 1);
+    if (!line.empty())
+      m_classNames.push_back(line);
+  }
+  file.close();
+
+  spdlog::info("AbsEngine::loadClassNames: loaded {} classes from {}", 
+    m_classNames.size(), path);
+  
   return true;
 }
 
