@@ -51,7 +51,7 @@ bool EngineLite::loadModel(const std::string& path)
   {
     spdlog::warn("EngineLite::loadModel: unexpected input tensor dimension size: {}",
                  m_inputTensor->dims->size);
-  }
+  } 
 
   return true;
 }
@@ -78,35 +78,32 @@ float* EngineLite::runInference(const cv::Mat& frame)
 
 bool EngineLite::runObjectDetection(const cv::Mat& frame)
 {
-  float* outputData{runInference(frame)};
-  /*
-  // Clear previous detections
-  m_objsDetected.m_classProbabilities.clear();
-  m_objsDetected.m_xOnes.clear();
-  m_objsDetected.m_yOnes.clear();
-  m_objsDetected.m_xTwos.clear();
-  m_objsDetected.m_yTwos.clear();
-  m_objsDetected.m_classNameIdxs.clear();
-
-  // Dispatch to the correct post-processing method based on model architecture
-  switch (m_models.m_archs[modelIdx])
+  float* outputData {runInference(frame)};
+  if (outputData == nullptr)
   {
-    case ModelArch::SSD:
-      //return ssdPostProc(, input.m_frame.cols, input.m_frame.rows);
-      return true;
+    spdlog::error("EngineLite::runObjectDetection: inference failed");
+    return false;
+  }
+  m_numBoxes = m_outputTensor->dims->data[1];
+  switch (m_config.m_arch)
+  {
     case ModelArch::YOLO5:
-      //return runYoloPostProc(modelIdx, input.m_frame.cols, input.m_frame.rows);
-      return true;
+      return yoloFivePostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::YOLOV8:
+      return yoloEightPostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::YOLO10:
+      return yoloTenPostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::SSD:
+      return ssdPostProc(outputData, frame.cols, frame.rows);
     default:
-      spdlog::error("EngineLite::runObjectDetection: Unknown model architecture for post-processing!");
+      spdlog::error("EngineLite::runObjectDetection: unsupported architecture");
       return false;
   }
-  */
-  return true;
 }
 
 bool EngineLite::runSemanticDetection(const cv::Mat& frame)
 {
-  // TODO
+  float* outputData {runInference(frame)};
+  // TODO post processing for semantic segmentation
   return true;
 }
