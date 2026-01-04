@@ -3,93 +3,60 @@
 
 #include <opencv2/imgproc.hpp>
 #include <fstream>
-#include <tensorflow/lite/op_resolver.h>
+#include <tensorflow/lite/interpreter_builder.h>
 #include <tensorflow/lite/kernels/register.h>
 #include <spdlog/spdlog.h>
 
-bool EngineLite::loadModel(const std::string& paath)
+bool EngineLite::loadModel(const std::string& path)
 {
-  /*
-  // get flatbuffer model data
-  FlatBufferModel model;
-  if (!loadFlatBufferModel(model, modelPath, modelType, confidence, iou))
+  spdlog::info("EngineLite::loadModel: loading model from {}", path);
+
+  m_flatBufferModel = tflite::FlatBufferModel::BuildFromFile(path.c_str());
+  if (m_flatBufferModel == nullptr)
   {
+    spdlog::error("EngineLite::loadModel: failed to build model from file: {}", path);
     return false;
   }
-  // get the class names
-  std::vector<const char*> classNames;
-  classNames.reserve(numClasses);
-  if (!loadClassNames(classNames, classNamePath))
+
+  tflite::ops::builtin::BuiltinOpResolver resolver;
+  tflite::InterpreterBuilder builder(*m_flatBufferModel, resolver);
+  if (builder(&m_interpreter) != kTfLiteOk)
   {
+    spdlog::error("EngineLite::loadModel: failed to build interpreter");
     return false;
   }
-  // add flatbuffer model and classNames to loaded models  
-  addLoadedModelsEntry(model, classNames); 
-  */
-                     
-  
+
+  if (m_interpreter->AllocateTensors() != kTfLiteOk)
+  {
+    spdlog::error("EngineLite::loadModel: failed to allocate tensors");
+    return false;
+  }
+
+  m_inputTensor = m_interpreter->tensor(m_interpreter->inputs()[0]);
+  m_outputTensor = m_interpreter->tensor(m_interpreter->outputs()[0]);
+
+  if (m_inputTensor == nullptr || m_outputTensor == nullptr)
+  {
+    spdlog::error("EngineLite::loadModel: failed to get input/output tensors.");
+    return false;
+  }
+
+  if (m_inputTensor->dims->size == 4)
+  {
+    m_height = m_inputTensor->dims->data[1];
+    m_width = m_inputTensor->dims->data[2];
+    m_inputChannels = m_inputTensor->dims->data[3];
+  }
+  else
+  {
+    spdlog::warn("EngineLite::loadModel: unexpected input tensor dimension size: {}",
+                 m_inputTensor->dims->size);
+  }
+
   return true;
 }
 
 /*
-bool EngineLite::loadTensorFlowModel(ModelData& model, const char* modelPath,
-                                     const char* modelType, float confidence, float iou)
-{
-  spdlog::info("EngineLite::loadFlatBufferPtr: loading {}", modelPath);
-
-  // add flatbuffer ptr to models container
-  model.m_flatBufferPtr std::move(tflite::FlatBufferModel::BuildFromFile(model));
-  if(model.m_flatBufferPtr == nullptr)
-  {
-    spdlog::error("EngineLite::loadFlatBuffer: could not load the flat buffer model!"); 
-    return false;
-  }
-  
-  // add interpreter ptr to models container
-  tflite::ops::builtin::BuiltinOpResolver resolver;
-  std::unique_ptr<tflite::Interpreter> interpreterPtr;
-  tflite::InterpreterBuilder(*flatBufferPtr, resolver)(&interpreterPtr);
-  if(interpreterPtr == nullptr)
-  {
-    spdlog::error("EngineLite::loadFlatBuffer: could not create interpreter!");
-    return false;
-  }
-  if(interpreterPtr->AllocateTensors() != kTfLiteOk)    // update all allocation for io tensors
-  {
-    spdlog::error("EngineLite::loadFlatBuffer: failed to update allocations for IO tensors.");
-    return false;
-  }
-
-  // update the pointers to IO tensors of interpreter
-  const int inTensorIdx {interpreterPtr->inputs()[0]};
-  m_models.m_inputTensorPtrs.push_back(interpreterPtr->tensor(inTensorIdx));
-  const int outTensorIdx {interpreterPtr->outputs()[0]};
-  m_models.m_outputTensorPtrs.push_back(interpreterPtr->tensor(outTensorIdx));
-
-  m_models.m_flatBufferPtrs.push_back(std::move(flatBufferPtr));
-  m_models.m_interpreterPtrs.push_back(std::move(interpreterPtr));
-
-  // add confidence and iou to container
-  m_models.m_confidences.push_back(confidence);
-  m_models.m_IoUs.push_back(iou);
-
-  // store model architecture
-  if (strcmp(modelType, "SSD") == 0)
-  {
-    m_models.m_archs.push_back(ModelArch::SSD);
-  }
-  else if (strcmp(modelType, "YOLO") == 0)
-  {
-    m_models.m_archs.push_back(ModelArch::YOLO5);
-  }
-  else
-  {
-    spdlog::error("Unknown model architecture type: {}", modelType);
-    return false;
-  }
-  return true;
-}
-
 bool EngineLite::loadClassNames(std::vector<const char*>& classNames, const char* path)
 {
   std::ifstream file(path);
