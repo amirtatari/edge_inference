@@ -22,7 +22,7 @@ endif()
 set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
 
 # opencv
-find_package(OpenCV REQUIRED)
+include(${LIBS_DIR}/opencv/opencv.cmake)
 
 # tflite
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libs/tflite")
@@ -37,6 +37,7 @@ add_library(src STATIC
   engine/openVino.cpp
   utils/profiler/profiler.cpp
   utils/config/config.cpp
+  libs/pugi/pugixml.cpp
 )
 
 # create a testable library from src
@@ -51,9 +52,18 @@ target_include_directories(src PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/config
   ${LIBS_DIR}
   ${TFLITE_SOURCE_DIR}
-)
-target_include_directories(src PUBLIC SYSTEM
-  ${OpenCV_INCLUDE_DIRS}
+
+  # opencv includes
+  ${opencv_SOURCE_DIR}/include                    
+  ${opencv_SOURCE_DIR}/modules/core/include       
+  ${opencv_SOURCE_DIR}/modules/imgproc/include    
+  ${opencv_SOURCE_DIR}/modules/imgcodecs/include  
+  ${opencv_SOURCE_DIR}/modules/highgui/include    
+  ${opencv_SOURCE_DIR}/modules/videoio/include
+  
+  # opencv generated files
+  ${opencv_BINARY_DIR}   
+  ${OPENCV_CONFIG_FILE_INCLUDE_DIR}
 )
 
 add_executable(${PROJECT_NAME} 

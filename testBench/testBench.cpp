@@ -17,9 +17,7 @@ bool TestBenchFactory::start(const std::string& path)
     return false;
   }
     
-  return testBench->runModelBenchmark(m_config.m_engineType, 
-                                      m_config.m_datasetDir,
-                                      m_config.m_engineConfigPath);
+  return testBench->runModelBenchmark(&m_config);
 }
 
 std::unique_ptr<AbsTestBench> TestBenchFactory::getTestBench(TestBenchType type)
@@ -36,25 +34,23 @@ std::unique_ptr<AbsTestBench> TestBenchFactory::getTestBench(TestBenchType type)
   }
 }
 
-bool AbsTestBench::runModelBenchmark(EngineType type, 
-                                    const std::string& datasetPath,
-                                    const std::string& engineConfigPath)
+bool AbsTestBench::runModelBenchmark(TestBenchConfig* config)
 {
-  std::unique_ptr<AbsEngine> engine {getEngine(type)};
+  std::unique_ptr<AbsEngine> engine {getEngine(config->m_engineType)};
   if (engine == nullptr) 
   {
     spdlog::error("AbsTestBench::runModelBenchmark: could not create engine instance!");
     return false;
   }
-  const std::vector<cv::Mat>& dataset {loadDataset(datasetPath)};
+  const std::vector<cv::Mat>& dataset {loadDataset(config->m_datasetDir)};
   if (dataset.empty())
   {
     spdlog::error("AbsTestBench::runModelBenchmark: could not load dataset from path: {}", 
-                   datasetPath);
+                   config->m_datasetDir);
     return false;
   }
 
-  if (!engine->init(engineConfigPath))  // initialize the engine parameters
+  if (!engine->init(config))  // initialize the engine parameters
   {
     spdlog::error("start: Engine initialization failed!");
     return false;

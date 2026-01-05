@@ -3,169 +3,115 @@
 
 #include <opencv2/imgproc.hpp>
 #include <fstream>
-#include <tensorflow/lite/op_resolver.h>
+#include <tensorflow/lite/interpreter_builder.h>
 #include <tensorflow/lite/kernels/register.h>
 #include <spdlog/spdlog.h>
 
-bool EngineLite::loadModel(const std::string& paath)
+bool EngineLite::loadModel(const std::string& path)
 {
-  /*
-  // get flatbuffer model data
-  FlatBufferModel model;
-  if (!loadFlatBufferModel(model, modelPath, modelType, confidence, iou))
-  {
-    return false;
-  }
-  // get the class names
-  std::vector<const char*> classNames;
-  classNames.reserve(numClasses);
-  if (!loadClassNames(classNames, classNamePath))
-  {
-    return false;
-  }
-  // add flatbuffer model and classNames to loaded models  
-  addLoadedModelsEntry(model, classNames); 
-  */
-                     
-  
-  return true;
-}
+  spdlog::info("EngineLite::loadModel: loading model from {}", path);
 
-/*
-bool EngineLite::loadTensorFlowModel(ModelData& model, const char* modelPath,
-                                     const char* modelType, float confidence, float iou)
-{
-  spdlog::info("EngineLite::loadFlatBufferPtr: loading {}", modelPath);
-
-  // add flatbuffer ptr to models container
-  model.m_flatBufferPtr std::move(tflite::FlatBufferModel::BuildFromFile(model));
-  if(model.m_flatBufferPtr == nullptr)
+  m_flatBufferModel = tflite::FlatBufferModel::BuildFromFile(path.c_str());
+  if (m_flatBufferModel == nullptr)
   {
-    spdlog::error("EngineLite::loadFlatBuffer: could not load the flat buffer model!"); 
+    spdlog::error("EngineLite::loadModel: failed to build model from file: {}", path);
     return false;
   }
-  
-  // add interpreter ptr to models container
+
   tflite::ops::builtin::BuiltinOpResolver resolver;
-  std::unique_ptr<tflite::Interpreter> interpreterPtr;
-  tflite::InterpreterBuilder(*flatBufferPtr, resolver)(&interpreterPtr);
-  if(interpreterPtr == nullptr)
+  tflite::InterpreterBuilder builder(*m_flatBufferModel, resolver);
+  if (builder(&m_interpreter) != kTfLiteOk)
   {
-    spdlog::error("EngineLite::loadFlatBuffer: could not create interpreter!");
-    return false;
-  }
-  if(interpreterPtr->AllocateTensors() != kTfLiteOk)    // update all allocation for io tensors
-  {
-    spdlog::error("EngineLite::loadFlatBuffer: failed to update allocations for IO tensors.");
+    spdlog::error("EngineLite::loadModel: failed to build interpreter");
     return false;
   }
 
-  // update the pointers to IO tensors of interpreter
-  const int inTensorIdx {interpreterPtr->inputs()[0]};
-  m_models.m_inputTensorPtrs.push_back(interpreterPtr->tensor(inTensorIdx));
-  const int outTensorIdx {interpreterPtr->outputs()[0]};
-  m_models.m_outputTensorPtrs.push_back(interpreterPtr->tensor(outTensorIdx));
-
-  m_models.m_flatBufferPtrs.push_back(std::move(flatBufferPtr));
-  m_models.m_interpreterPtrs.push_back(std::move(interpreterPtr));
-
-  // add confidence and iou to container
-  m_models.m_confidences.push_back(confidence);
-  m_models.m_IoUs.push_back(iou);
-
-  // store model architecture
-  if (strcmp(modelType, "SSD") == 0)
+  if (m_interpreter->AllocateTensors() != kTfLiteOk)
   {
-    m_models.m_archs.push_back(ModelArch::SSD);
+    spdlog::error("EngineLite::loadModel: failed to allocate tensors");
+    return false;
   }
-  else if (strcmp(modelType, "YOLO") == 0)
+
+  m_inputTensor = m_interpreter->tensor(m_interpreter->inputs()[0]);
+  m_outputTensor = m_interpreter->tensor(m_interpreter->outputs()[0]);
+
+  if (m_inputTensor == nullptr || m_outputTensor == nullptr)
   {
-    m_models.m_archs.push_back(ModelArch::YOLO5);
+    spdlog::error("EngineLite::loadModel: failed to get input/output tensors.");
+    return false;
+  }
+
+  if (m_inputTensor->dims->size == 4)
+  {
+    m_height = m_inputTensor->dims->data[1];
+    m_width = m_inputTensor->dims->data[2];
+    m_inputChannels = m_inputTensor->dims->data[3];
   }
   else
   {
-    spdlog::error("Unknown model architecture type: {}", modelType);
+    spdlog::error("EngineLite::loadModel: unexpected input tensor dimension size: {}",
+                 m_inputTensor->dims->size);
     return false;
-  }
+  } 
+
   return true;
 }
-
-bool EngineLite::loadClassNames(std::vector<const char*>& classNames, const char* path)
-{
-  std::ifstream file(path);
-  if (!file.is_open())
-  {
-    spdlog::error("EngineLite::loadClassNames: cannot load the file at: " + path);
-    return false;
-  }
-
-    std::string line;
-    while (std::getline(file, line))
-    {
-        // Remove any trailing whitespace
-        line.erase(line.find_last_not_of(" \n\r\t") + 1);
-        if (!line.empty())
-        {
-          classNames.push_back(line);
-        } 
-    }
-    file.close();
-    
-  return true;
-}
-*/
 
 float* EngineLite::runInference(const cv::Mat& frame)
 {
   // resize and normalize the input frame
   resizeAndNormalize(frame);
 
-  // Copy data to input tensor
+  // copy data to input tensor
   memcpy(m_inputTensor->data.f, m_normalizedFrame.data, 
          m_normalizedFrame.total() * m_normalizedFrame.elemSize());
 
-  // Run inference
-  if (m_interpreter->Invoke() != kTfLiteOk)
-  {
-    spdlog::error("EngineLite::runObjectDetection: failed to invoke interpreter!");
-    return nullptr;
-  }
-
-  return m_outputTensor->data.f;
+  // run inference
+  return m_interpreter->Invoke() != kTfLiteOk ? nullptr : m_outputTensor->data.f;
 }
 
 
 bool EngineLite::runObjectDetection(const cv::Mat& frame)
 {
-  float* outputData{runInference(frame)};
-  /*
-  // Clear previous detections
-  m_objsDetected.m_classProbabilities.clear();
-  m_objsDetected.m_xOnes.clear();
-  m_objsDetected.m_yOnes.clear();
-  m_objsDetected.m_xTwos.clear();
-  m_objsDetected.m_yTwos.clear();
-  m_objsDetected.m_classNameIdxs.clear();
-
-  // Dispatch to the correct post-processing method based on model architecture
-  switch (m_models.m_archs[modelIdx])
+  float* outputData {runInference(frame)};
+  if (outputData == nullptr)
   {
-    case ModelArch::SSD:
-      //return ssdPostProc(, input.m_frame.cols, input.m_frame.rows);
-      return true;
+    spdlog::error("EngineLite::runObjectDetection: inference failed");
+    return false;
+  }
+  m_numBoxes = m_outputTensor->dims->data[1];
+  switch (m_config->m_arch)
+  {
     case ModelArch::YOLO5:
-      //return runYoloPostProc(modelIdx, input.m_frame.cols, input.m_frame.rows);
-      return true;
+      return yoloFivePostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::YOLOV8:
+      return yoloEightPostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::YOLO10:
+      return yoloTenPostProc(outputData, frame.cols, frame.rows);
+    case ModelArch::SSD:
+      return ssdPostProc(outputData, frame.cols, frame.rows);
     default:
-      spdlog::error("EngineLite::runObjectDetection: Unknown model architecture for post-processing!");
+      spdlog::error("EngineLite::runObjectDetection: unsupported architecture");
       return false;
   }
-  */
-  return true;
 }
 
 bool EngineLite::runSemanticDetection(const cv::Mat& frame)
 {
-  // TODO
+  float* outputData {runInference(frame)};
+  if (outputData == nullptr)
+  {
+    spdlog::error("EngineLite::runSemanticDetection: inference failed");
+    return false;
+  }
+
+  // get output tensor dimensions
+  const int outH {m_outputTensor->dims->data[1]};
+  const int outW {m_outputTensor->dims->data[2]};
+  const int numClasses {m_outputTensor->dims->data[3]};
+
+  semanticPostProc(outputData, outW, outH, numClasses, frame.cols, frame.rows);
+
   return true;
 }
+
