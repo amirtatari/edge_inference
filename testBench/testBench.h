@@ -3,6 +3,7 @@
 #include "../engine/tfLite.h"
 #include "../engine/openVino.h"
 #include "../engine/tensorRt.h"
+#include "../utils/config/config.h"
 
 class AbsTestBench
 {
@@ -35,14 +36,10 @@ protected:
 public:
   /**
    * @brief runs the benchmark for the given engine type and dataset
-   * @param type type of the inference engine
-   * @param datasetPath path to the dataset directory
-   * @param engineConfigPath path to the engine configuration file
+   * @param config ptr to testbench config
    * @return true if successful, false otherwise
    */
-  bool runModelBenchmark(EngineType type, 
-                         const std::string& datasetPath,
-                         const std::string& engineConfigPath);
+  bool runModelBenchmark(TestBenchConfig* config);
 
   ~AbsTestBench() = default;
 };

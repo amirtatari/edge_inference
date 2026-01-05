@@ -80,7 +80,7 @@ bool EngineLite::runObjectDetection(const cv::Mat& frame)
     return false;
   }
   m_numBoxes = m_outputTensor->dims->data[1];
-  switch (m_config.m_arch)
+  switch (m_config->m_arch)
   {
     case ModelArch::YOLO5:
       return yoloFivePostProc(outputData, frame.cols, frame.rows);

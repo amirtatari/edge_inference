@@ -58,7 +58,7 @@ void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
   for (int i {0}; i < m_numBoxes; ++i)
   {
     const float objectness_score {outputTensorData[i * (num_classes + 5) + 4]};
-    if (objectness_score > m_config.m_confidenceThreshold)
+    if (objectness_score > m_config->m_confidenceThreshold)
     {
       const float* class_probabilities {&outputTensorData[i * (num_classes + 5) + 5]};
       int best_class_id {-1};
@@ -73,7 +73,7 @@ void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
       }
 
       const float combined_score {objectness_score * best_class_score};
-      if (combined_score > m_config.m_confidenceThreshold)
+      if (combined_score > m_config->m_confidenceThreshold)
       {
         const float x_center {outputTensorData[i * (num_classes + 5) + 0]};
         const float y_center {outputTensorData[i * (num_classes + 5) + 1]};
@@ -126,7 +126,7 @@ bool AbsEngine::yoloEightPostProc(void* data, int frameWidth, int frameHeight)
       }
     }
 
-    if (best_class_score > m_config.m_confidenceThreshold)
+    if (best_class_score > m_config->m_confidenceThreshold)
     {
       const float x_center {outputTensorData[0 * m_numBoxes + i]};
       const float y_center {outputTensorData[1 * m_numBoxes + i]};
@@ -166,7 +166,7 @@ bool AbsEngine::yoloTenPostProc(void* data, int frameWidth, int frameHeight)
   for (int i {0}; i < m_numBoxes; ++i)
   {
     const float score {outputTensorData[i * 6 + 4]};
-    if (score > m_config.m_confidenceThreshold)
+    if (score > m_config->m_confidenceThreshold)
     {
       const float x1 {outputTensorData[i * 6 + 0]};
       const float y1 {outputTensorData[i * 6 + 1]};
@@ -229,7 +229,7 @@ void AbsEngine::applyNms(const std::vector<cv::Rect>& boxes,
         const cv::Rect& box1 {boxes[current_idx]};
         const cv::Rect& box2 {boxes[other_idx]};
 
-        if (calculateIoU(box1, box2) < m_config.m_iouThreshold)
+        if (calculateIoU(box1, box2) < m_config->m_iouThreshold)
           remaining_indices.push_back(other_idx);
       }
       indices = std::move(remaining_indices);
@@ -251,7 +251,6 @@ void AbsEngine::applyNms(const std::vector<cv::Rect>& boxes,
   }
 }
 
-
 /*
   ssd output shape: [1, num_boxes, 7]
   box-format: [image_id, class_id, score, xmin, ymin, xmax, ymax]
@@ -267,7 +266,7 @@ bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
   for (int i {0}; i < m_numBoxes; ++i)
   {
     const float score {outputTensorData[i * 7 + 2]};
-    if (score > m_config.m_confidenceThreshold)
+    if (score > m_config->m_confidenceThreshold)
     {
       const int class_id {static_cast<int>(outputTensorData[i * 7 + 1])};
       const float xmin {outputTensorData[i * 7 + 3] * frameWidth};
@@ -286,25 +285,20 @@ bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
   return true;
 }
 
-bool AbsEngine::init(const std::string& configPath)
+bool AbsEngine::init(TestBenchConfig* config)
 {
-  if (!m_config.parseConfigFile(configPath))
-  {
-    spdlog::error("AbsEngine::init: could not parse config file: {}", configPath);
-    return false;
-  }
-
-  if (!loadModel(m_config.m_modelPath))
+  m_config = config;
+  if (!loadModel(m_config->m_modelPath))
   {
     spdlog::error("AbsEngine::init: could not load model from path: {}", 
-      m_config.m_modelPath);
+      m_config->m_modelPath);
     return false;
   }
 
-  if (!loadClassNames(m_config.m_classNamesPath))
+  if (!loadClassNames(m_config->m_classNamesPath))
   {
     spdlog::error("AbsEngine::init: could not load class names from path: {}", 
-      m_config.m_classNamesPath);
+      m_config->m_classNamesPath);
     return false;
   }
 
