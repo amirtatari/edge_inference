@@ -252,9 +252,37 @@ void AbsEngine::applyNms(const std::vector<cv::Rect>& boxes,
 }
 
 
+/*
+  ssd output shape: [1, num_boxes, 7]
+  box-format: [image_id, class_id, score, xmin, ymin, xmax, ymax]
+*/
 bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
 {
-  // TODO
+  const float* outputTensorData {static_cast<const float*>(data)};
+
+  std::vector<cv::Rect> boxes;
+  std::vector<float> scores;
+  std::vector<int> class_ids;
+
+  for (int i {0}; i < m_numBoxes; ++i)
+  {
+    const float score {outputTensorData[i * 7 + 2]};
+    if (score > m_config.m_confidenceThreshold)
+    {
+      const int class_id {static_cast<int>(outputTensorData[i * 7 + 1])};
+      const float xmin {outputTensorData[i * 7 + 3] * frameWidth};
+      const float ymin {outputTensorData[i * 7 + 4] * frameHeight};
+      const float xmax {outputTensorData[i * 7 + 5] * frameWidth};
+      const float ymax {outputTensorData[i * 7 + 6] * frameHeight};
+
+      boxes.emplace_back(static_cast<int>(xmin), static_cast<int>(ymin), 
+                         static_cast<int>(xmax - xmin), static_cast<int>(ymax - ymin));
+      scores.push_back(score);
+      class_ids.push_back(class_id);
+    }
+  }
+
+  applyNms(boxes, scores, class_ids);
   return true;
 }
 
