@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'>
+<testBenchConfigs>
+  <type value='object_detection' />
+  <engineType value='tflite' />
+  <datasetDir value='/path/to/dataset' />
+  <engine>
+    <modelPath value='/path/to/model' />
+    <classesPath value='/path/to/classes' />
+    <iou value='0.7'/>
+    <confidence value='0.6'/>
+  </engine>
+</testBenchConfigs>
