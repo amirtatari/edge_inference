@@ -59,12 +59,11 @@ bool EngineLite::loadModel(const std::string& path)
 
 float* EngineLite::runInference(const cv::Mat& frame)
 {
-  // resize and normalize the input frame
-  resizeAndNormalize(frame);
+  // wrap input tensor memory in a cv::Mat for zero-copy access
+  cv::Mat inputWrapper(m_height, m_width, CV_32FC3, m_inputTensor->data.f);
 
-  // copy data to input tensor
-  memcpy(m_inputTensor->data.f, m_normalizedFrame.data, 
-         m_normalizedFrame.total() * m_normalizedFrame.elemSize());
+  // resize and normalize the input frame directly into tensor memory
+  resizeAndNormalize(frame, inputWrapper);
 
   // run inference
   return m_interpreter->Invoke() != kTfLiteOk ? nullptr : m_outputTensor->data.f;
