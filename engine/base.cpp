@@ -35,10 +35,10 @@ bool AbsEngine::loadClassNames(const std::string& path)
 
 /* ------------------------------- Pre Processing ------------------------------------ */
 
-void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
+void AbsEngine::resizeAndNormalize(const cv::Mat& input, cv::Mat& output)
 {
-  cv::resize(frame, m_resizedFrame, cv::Size(m_width, m_height));
-  m_resizedFrame.convertTo(m_normalizedFrame, CV_32FC3, 1.0f / 255.0f);
+  cv::resize(input, m_resizedFrame, cv::Size(m_width, m_height));
+  m_resizedFrame.convertTo(output, CV_32FC3, 1.0f / 255.0f);
 }
 
 /* ------------------------------- Post Processing ------------------------------------ */

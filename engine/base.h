@@ -34,7 +34,6 @@ class AbsEngine
 {
 protected:
   cv::Mat m_resizedFrame;                         /// \var resized input frame        
-  cv::Mat m_normalizedFrame;                      /// \var normalized input frame
 
   TestBenchConfig* m_config;                      /// \var ptr to test bench configuration
   DetectedObjects m_odOutput;                     /// \var object detection output
@@ -62,9 +61,10 @@ protected:
 
   /**
    * @brief resizes and normalizes the input frame
-   * @param frame input frame
+   * @param input input frame
+   * @param output output frame (normalized)
    */
-  void resizeAndNormalize(const cv::Mat& frame);
+  void resizeAndNormalize(const cv::Mat& input, cv::Mat& output);
 
   /**
    * @brief run post proccessing algorithm on the output tensor of a YOLOv5 model
