@@ -60,13 +60,6 @@ protected:
   bool loadClassNames(const std::string& path);
 
   /**
-   * @brief resizes and normalizes the input frame
-   * @param input input frame
-   * @param output output frame (normalized)
-   */
-  void resizeAndNormalize(const cv::Mat& input, cv::Mat& output);
-
-  /**
    * @brief run post proccessing algorithm on the output tensor of a YOLOv5 model
    * @param data pointer to the output tensor data
    * @param frameWidth original frame width

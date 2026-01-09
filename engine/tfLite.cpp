@@ -61,9 +61,8 @@ float* EngineLite::runInference(const cv::Mat& frame)
 {
   // wrap input tensor memory in a cv::Mat for zero-copy access
   cv::Mat inputWrapper(m_height, m_width, CV_32FC3, m_inputTensor->data.f);
-
-  // resize and normalize the input frame directly into tensor memory
-  resizeAndNormalize(frame, inputWrapper);
+  cv::resize(frame, m_resizedFrame, cv::Size(m_width, m_height));
+  m_resizedFrame.convertTo(inputWrapper, CV_32FC3, 1.0f / 255.0f);
 
   // run inference
   return m_interpreter->Invoke() != kTfLiteOk ? nullptr : m_outputTensor->data.f;
