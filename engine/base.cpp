@@ -33,14 +33,6 @@ bool AbsEngine::loadClassNames(const std::string& path)
   return true;
 }
 
-/* ------------------------------- Pre Processing ------------------------------------ */
-
-void AbsEngine::resizeAndNormalize(const cv::Mat& frame)
-{
-  cv::resize(frame, m_resizedFrame, cv::Size(m_width, m_height));
-  m_resizedFrame.convertTo(m_normalizedFrame, CV_32FC3, 1.0f / 255.0f);
-}
-
 /* ------------------------------- Post Processing ------------------------------------ */
 /* 
   yolo v5 output shape: [1, num_boxes, 5 + num_classes]

@@ -10,7 +10,7 @@ FetchContent_MakeAvailable(googletest)
 
 # 2. Create the Test Executable
 add_executable(tests
-  tfliteEngine_test.cpp)
+  tflite_test.cpp)
 
 # 3. Link Libraries
 target_link_libraries(tests PRIVATE
