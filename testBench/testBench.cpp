@@ -70,10 +70,6 @@ std::unique_ptr<AbsEngine> AbsTestBench::getEngine(EngineType type)
   {
     case EngineType::TFLITE:
       return std::make_unique<EngineLite>();
-    case EngineType::OPENVINO:
-      return std::make_unique<EngineVino>();
-    case EngineType::TENSORRT:
-      return std::make_unique<EngineRt>();
     default:
       spdlog::error("TestBench::getEngine: Unknown engine type!");
       return nullptr;
