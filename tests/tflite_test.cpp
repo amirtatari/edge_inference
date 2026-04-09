@@ -1,4 +1,4 @@
-#include "../engine/tfLite.h"
+#include "../engine/tfLite.hpp"
 #include "gtest/gtest.h"
 #include <fstream>
 #include <cstdio>

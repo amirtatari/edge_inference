@@ -1,5 +1,6 @@
 add_executable(tests
   tflite_test.cpp
+  queue_test.cpp
 )
 
 target_link_libraries(tests PRIVATE    

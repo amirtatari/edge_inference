@@ -46,6 +46,7 @@ target_include_directories(src PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/engine
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/profiler
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/config
+  ${CMAKE_CURRENT_SOURCE_DIR}/utils/queue
 )
 
 target_include_directories(src SYSTEM PUBLIC
