@@ -1,5 +1,5 @@
-#include "tfLite.h"
-#include "../../utils/profiler/profiler.h"
+#include "tfLite.hpp"
+#include "../../utils/profiler/profiler.hpp"
 
 #include <opencv2/imgproc.hpp>
 #include <fstream>

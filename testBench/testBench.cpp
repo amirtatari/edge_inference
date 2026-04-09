@@ -1,4 +1,4 @@
-#include "testBench.h"
+#include "testBench.hpp"
 
 #include <spdlog/spdlog.h>
 

@@ -1,4 +1,5 @@
-#include "testBench/testBench.h"
+#include "testBench/testBench.hpp"
+
 #include <spdlog/spdlog.h>
 
 int main(int argc, char *argv[])

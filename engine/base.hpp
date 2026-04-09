@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../utils/config/config.h"
+#include "../utils/config/config.hpp"
 
 #include <opencv2/core/mat.hpp>
 #include <vector>
