@@ -26,19 +26,38 @@ This test bench allows developers and engineers to:
 
 ### Prerequisites
 
--   C++20 compatible compiler (e.g., GCC 11+)
+-   C++20
 -   CMake (v3.16+)
--   (Optional but Recommended) Docker
+-   Docker
 
 ### Building the Application
 
-The project is designed to be built using CMake and Ninja. The following commands will configure and build the project, including fetching all the required dependencies.
-
-```bash
-cmake -S . -B build
-cmake --build build/ -j$(nproc)
+1. Build the docker image using the docker file:
+```Bash
+docker build -t edge_inference-sdk:latest .
 ```
-This will create the main executable at `build/bin/edge_inference`.
+
+2. Build the application using the SDK image:
+```Bash
+mkdir -vp build
+docker run --rm -v $(pwd):/workspace edge_inference-sdk:latest bash -c "
+  cmake -G Ninja -S /workspace -B /workspace/build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSDK_PATH=/opt/sdk/x86 && \
+  cmake --build /workspace/build -j$(nproc)"
+```
+
+3. Run the executable:
+```Bash
+docker run --rm -v $(pwd):/workspace edge_inference-sdk:latest bash -c "
+    build/edge_inference --config configs/config.xml"
+```
+
+4. Run the unit tests:
+```Bash
+docker run --rm -v $(pwd):/workspace inference-manager-sdk:latest bash -c "
+  cd /workspace/build && ctest --output-on-failure -j$(nproc)"
+```
 
 ## Usage
 

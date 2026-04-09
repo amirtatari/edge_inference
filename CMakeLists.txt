@@ -18,6 +18,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "DEBUG")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 endif()
 
+get_filename_component(SDK_NAME "${SDK_PATH}" NAME)
+list(APPEND CMAKE_PREFIX_PATH "${SDK_PATH}")
+
 # define libs directory
 set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
 
@@ -25,7 +28,7 @@ set(LIBS_DIR "${CMAKE_SOURCE_DIR}/libs")
 include(${LIBS_DIR}/opencv/opencv.cmake)
 
 # tflite
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libs/tflite")
+#list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libs/tflite")
 include(${LIBS_DIR}/tflite/tflite.cmake)
 
 # project src files
@@ -33,37 +36,28 @@ add_library(src STATIC
   testBench/testBench.cpp
   engine/base.cpp
   engine/tfLite.cpp
-  engine/tensorRt.cpp
-  engine/openVino.cpp
   utils/profiler/profiler.cpp
   utils/config/config.cpp
   libs/pugi/pugixml.cpp
 )
 
-# create a testable library from src
-target_link_libraries(src PUBLIC 
-  tensorflow-lite
-  ${OpenCV_LIBS}
-)
 target_include_directories(src PUBLIC 
   ${CMAKE_CURRENT_SOURCE_DIR}/testBench
   ${CMAKE_CURRENT_SOURCE_DIR}/engine
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/profiler
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/config
-  ${LIBS_DIR}
-  ${TFLITE_SOURCE_DIR}
+)
 
-  # opencv includes
-  ${opencv_SOURCE_DIR}/include                    
-  ${opencv_SOURCE_DIR}/modules/core/include       
-  ${opencv_SOURCE_DIR}/modules/imgproc/include    
-  ${opencv_SOURCE_DIR}/modules/imgcodecs/include  
-  ${opencv_SOURCE_DIR}/modules/highgui/include    
-  ${opencv_SOURCE_DIR}/modules/videoio/include
-  
-  # opencv generated files
-  ${opencv_BINARY_DIR}   
-  ${OPENCV_CONFIG_FILE_INCLUDE_DIR}
+target_include_directories(src SYSTEM PUBLIC
+  ${LIBS_DIR}
+  ${OpenCV_INCLUDE_DIRS}
+  ${SDK_PATH}/include
+)
+
+target_link_libraries(src PUBLIC 
+  tensorflow-lite
+  ${OpenCV_LIBS}
+  rt
 )
 
 add_executable(${PROJECT_NAME} 
@@ -74,5 +68,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   src 
 )
 
+find_package(GTest CONFIG REQUIRED)
+include(GoogleTest)
 enable_testing()
 add_subdirectory(tests)
