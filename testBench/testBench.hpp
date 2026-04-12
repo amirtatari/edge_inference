@@ -3,7 +3,7 @@
 #include "../engine/tfLite.hpp"
 #include "../utils/config/config.hpp"
 
-class AbsTestBench
+class AbsTask
 {
 protected:
   /**
@@ -20,12 +20,6 @@ protected:
   virtual void runInference(AbsEngine* engine, const cv::Mat& frame) = 0;
 
   /**
-   * @brief creates and returns an inference engine based on the specified type
-   * @param type type of the inference engine
-   */
-  std::unique_ptr<AbsEngine> getEngine(EngineType type);
-
-  /**
    * @brief loads the test dataset from the specified directory
    * @param path path to the dataset directory
    * @return vector of cv::Mat containing the loaded dataset frames
@@ -37,38 +31,44 @@ public:
    * @param config ptr to testbench config
    * @return true if successful, false otherwise
    */
-  bool runModelBenchmark(TestBenchConfig* config);
+  bool runModelBenchmark(Config* config);
 
-  ~AbsTestBench() = default;
+  ~AbsTask() = default;
 };
 
-class ObjectDetectionBench : public AbsTestBench
+class ObjectDetection : public AbsTask
 {
   void evaluateOutput(AbsEngine* engine);
   void runInference(AbsEngine* engine, const cv::Mat& frame);
 };
 
-class SemanticSegmentationBench : public AbsTestBench
+class SemanticSegmentation : public AbsTask
 {
   void evaluateOutput(AbsEngine* engine);
   void runInference(AbsEngine* engine, const cv::Mat& frame);
 };
 
-
-class TestBenchFactory
+class TaskFactory
 {
-  TestBenchConfig m_config;                      /// \var test bench configuration
+  Config m_config;                      /// \var test bench configuration
 
   /**
-   * @brief creates and returns a test bench instance based on the specified type
+   * @brief creates and returns a task instance based on the specified type
    * @param type type of the test bench
    */
-  std::unique_ptr<AbsTestBench> getTestBench(TestBenchType type);
-public:
+  std::optional<std::unique_ptr<AbsTask>> getTask(TaskType type) const;
+
   /**
    * @brief starts the test bench with the given configuration file
    * @param path path to the test bench configuration file
-   * @return true if successful, false otherwise
    */
-  bool start(const std::string& path);
+  void start(const std::string& path);
+
+public:
+  explicit TaskFactory(const std::string& configPath);
+
+  TaskFactory(const TaskFactory&) = delete;
+  TaskFactory(TaskFactory&&) = delete;
+  TaskFactory& operator=(const TaskFactory&) = delete;
+  TaskFactory& operator=(TaskFactory&&) = delete;
 };

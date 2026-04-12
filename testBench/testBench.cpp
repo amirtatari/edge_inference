@@ -2,111 +2,95 @@
 
 #include <spdlog/spdlog.h>
 
-bool TestBenchFactory::start(const std::string& path)
+TaskFactory::TaskFactory(const std::string& configPath)
 {
-  if (!m_config.parseConfigFile(path))
-  {
-    spdlog::error("TestBenchFactory::start: could not parse config file: {}", path);
-    return false;
-  }
-
-  std::unique_ptr<AbsTestBench> testBench {getTestBench(m_config.m_benchType)};
-  if (testBench == nullptr)
-  {
-    spdlog::error("TestBenchFactory::start: could not create test bench instance!");
-    return false;
-  }
-    
-  return testBench->runModelBenchmark(&m_config);
+  start(configPath);
 }
 
-std::unique_ptr<AbsTestBench> TestBenchFactory::getTestBench(TestBenchType type)
+void TaskFactory::start(const std::string& path)
+{
+  if (path.empty())
+    throw std::runtime_error("TaskFactory::start: empty config file path!");
+
+  m_config.parseFromFile(path);
+
+  const auto taskRes {getTask(m_config.m_taskType)};
+  if (!taskRes.has_value())
+    throw std::runtime_error("TaskFactory::start: could not create test bench instance!");
+    
+  taskRes.value()->runModelBenchmark(&m_config);
+}
+
+std::optional<std::unique_ptr<AbsTask>> TaskFactory::getTask(TaskType type) const
 {
   switch (type)
   {
-    case TestBenchType::OBJECT_DETECTION:
-      return std::make_unique<ObjectDetectionBench>();
-    case TestBenchType::SEMANTIC_SEGMENTATION:
-      return std::make_unique<SemanticSegmentationBench>();
+    case TaskType::OBJECT_DETECTION:
+      return std::make_unique<ObjectDetection>();
+    case TaskType::SEMANTIC_SEGMENTATION:
+      return std::make_unique<SemanticSegmentation>();
     default:
-      spdlog::error("TestBenchFactory::getTestBench: Unknown test bench type!");
-      return nullptr;
+      spdlog::error("TaskFactory::getTestBench: Unknown test bench type!");
+      return std::nullopt;
   }
 }
 
-bool AbsTestBench::runModelBenchmark(TestBenchConfig* config)
+bool AbsTask::runModelBenchmark(Config* config)
 {
-  std::unique_ptr<AbsEngine> engine {getEngine(config->m_engineType)};
-  if (engine == nullptr) 
-  {
-    spdlog::error("AbsTestBench::runModelBenchmark: could not create engine instance!");
-    return false;
-  }
+  EngineLite engine;
   const std::vector<cv::Mat>& dataset {loadDataset(config->m_datasetDir)};
   if (dataset.empty())
   {
-    spdlog::error("AbsTestBench::runModelBenchmark: could not load dataset from path: {}", 
+    spdlog::error("AbsTask::runModelBenchmark: could not load dataset from path: {}", 
                    config->m_datasetDir);
     return false;
   }
 
-  if (!engine->init(config))  // initialize the engine parameters
+  if (!engine.init(config))  // initialize the engine parameters
   {
     spdlog::error("start: Engine initialization failed!");
     return false;
   }
 
-  for (const auto& frame : dataset)
-    runInference(engine.get(), frame);
+  for (auto&& frame : dataset)
+    runInference(&engine, frame);
   
-  evaluateOutput(engine.get());
+  evaluateOutput(&engine);
 
   return true;
 }
 
-std::unique_ptr<AbsEngine> AbsTestBench::getEngine(EngineType type)
-{
-  switch (type)
-  {
-    case EngineType::TFLITE:
-      return std::make_unique<EngineLite>();
-    default:
-      spdlog::error("TestBench::getEngine: Unknown engine type!");
-      return nullptr;
-  }
-}
-
-std::vector<cv::Mat> AbsTestBench::loadDataset(const std::string& path)
+std::vector<cv::Mat> AbsTask::loadDataset(const std::string& path)
 {
   // TODO
   return std::vector<cv::Mat>{};
 }
 
-void ObjectDetectionBench::runInference(AbsEngine* engine, const cv::Mat& frame)
+void ObjectDetection::runInference(AbsEngine* engine, const cv::Mat& frame)
 {
   if (!engine->runObjectDetection(frame))
-    spdlog::error("ObjectDetectionBench::runInference: Inference failed!");
+    spdlog::error("ObjectDetection::runInference: Inference failed!");
   
 }
 
-void ObjectDetectionBench::evaluateOutput(AbsEngine* engine)
+void ObjectDetection::evaluateOutput(AbsEngine* engine)
 {
   // TODO
-  spdlog::info("ObjectDetectionBench::validateOutput: test!");
+  spdlog::info("ObjectDetection::validateOutput: test!");
 }
 
-void SemanticSegmentationBench::runInference(AbsEngine* engine, const cv::Mat& frame)
+void SemanticSegmentation::runInference(AbsEngine* engine, const cv::Mat& frame)
 {
   if (!engine->runSemanticDetection(frame))
-    spdlog::error("SemanticSegmentationBench::runInference: Inference failed!");
+    spdlog::error("SemanticSegmentation::runInference: Inference failed!");
   
 
 }
 
-void SemanticSegmentationBench::evaluateOutput(AbsEngine* engine)
+void SemanticSegmentation::evaluateOutput(AbsEngine* engine)
 {
   // TODO
-  spdlog::info("SemanticSegmentationBench::validateOutput: test!");
+  spdlog::info("SemanticSegmentation::validateOutput: test!");
 }
 
 

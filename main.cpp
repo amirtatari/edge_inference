@@ -7,8 +7,7 @@ int main(int argc, char *argv[])
   if (argc == 3 && std::string(argv[1]) == "--config")
   {
     const std::string configPath {argv[2]};
-    TestBenchFactory tbfactory;
-    tbfactory.start(configPath);
+    TaskFactory taskFactory(configPath);
   }
   else
   {

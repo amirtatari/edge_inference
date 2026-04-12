@@ -277,7 +277,7 @@ bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
   return true;
 }
 
-bool AbsEngine::init(TestBenchConfig* config)
+bool AbsEngine::init(Config* config)
 {
   m_config = config;
   if (!loadModel(m_config->m_modelPath))

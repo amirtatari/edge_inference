@@ -35,7 +35,7 @@ class AbsEngine
 protected:
   cv::Mat m_resizedFrame;                         /// \var resized input frame        
 
-  TestBenchConfig* m_config;                      /// \var ptr to test bench configuration
+  Config* m_config;                      /// \var ptr to test bench configuration
   DetectedObjects m_odOutput;                     /// \var object detection output
   DetectedSemantics m_semantics;                  /// \var semantic segmentation output
   
@@ -130,7 +130,7 @@ public:
    * @param configPath path to the configuration file
    * @return true if successful, false otherwise
    */
-  bool init(TestBenchConfig* config);
+  bool init(Config* config);
 
   /**
    * @brief runs object detection on the input frame

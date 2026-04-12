@@ -1,7 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'>
-<testBenchConfigs>
-  <type value='object_detection' />
-  <engineType value='tflite' />
+<config>
+  <taskType value='object_detection' />
   <datasetDir value='/path/to/dataset' />
   <engine>
     <modelPath value='/path/to/model' />
@@ -9,4 +8,4 @@
     <iou value='0.7'/>
     <confidence value='0.6'/>
   </engine>
-</testBenchConfigs>
+</config>
