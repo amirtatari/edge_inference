@@ -55,7 +55,7 @@ docker run --rm -v $(pwd):/workspace edge_inference-sdk:latest bash -c "
 
 4. Run the unit tests:
 ```Bash
-docker run --rm -v $(pwd):/workspace inference-manager-sdk:latest bash -c "
+docker run --rm -v $(pwd):/workspace edge_inference-sdk:latest bash -c "
   cd /workspace/build && ctest --output-on-failure -j$(nproc)"
 ```
 
