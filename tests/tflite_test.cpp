@@ -1,4 +1,4 @@
-#include "../engine/tfLite.h"
+#include "../engine/tfLite.hpp"
 #include "gtest/gtest.h"
 #include <fstream>
 #include <cstdio>
@@ -34,6 +34,6 @@ TEST_F(EngineLiteTest, LoadInvalidModel)
 
 TEST_F(EngineLiteTest, LoadValidModel) 
 {
-  const std::string validModelPath {"/home/dev/repos/edge_inference/modelZoo/yolov5.tflite"};
+  const std::string validModelPath {"/workspace/modelZoo/yolov5.tflite"};
   EXPECT_TRUE(engine.loadModel(validModelPath));
 }

@@ -3,7 +3,7 @@
 #include <memory>
 #include <tensorflow/lite/model.h>
 
-#include "base.h"
+#include "base.hpp"
 
 /**
  * @brief TensorFlow Lite inference engine implementation

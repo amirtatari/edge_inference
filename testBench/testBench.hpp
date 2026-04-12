@@ -1,9 +1,7 @@
 #pragma once
 
-#include "../engine/tfLite.h"
-#include "../engine/openVino.h"
-#include "../engine/tensorRt.h"
-#include "../utils/config/config.h"
+#include "../engine/tfLite.hpp"
+#include "../utils/config/config.hpp"
 
 class AbsTestBench
 {
