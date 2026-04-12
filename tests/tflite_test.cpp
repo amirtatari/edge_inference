@@ -1,5 +1,6 @@
 #include "../engine/tfLite.hpp"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 #include <fstream>
 #include <cstdio>
 #include <string>
@@ -8,10 +9,6 @@ class EngineLiteTest : public ::testing::Test {
 protected:
     EngineLite engine;
     std::string invalidModelPath = "invalid_model.tflite";
-
-    void SetUp() override {
-        // Setup code if needed
-    }
 
     void TearDown() override {
         // Clean up garbage file if it exists

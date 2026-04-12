@@ -91,6 +91,7 @@ void Config::parseFromFile(const std::string& path)
   {
     spdlog::error("Config: Exception while parsing config file: {}", 
       e.what());
+    throw;
   }
 }
 

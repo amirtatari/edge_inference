@@ -19,6 +19,10 @@ enum class ModelArch : int {SSD, YOLO5, YOLOV8, YOLO10};
  */
 class Config
 {
+  #ifdef UNIT_TESTING
+  friend class ConfigTest;
+  #endif 
+
   /**
    * @brief parse engine node in config file
    * @param engineNode xml node
@@ -29,7 +33,7 @@ class Config
    * @brief parse test bench configs node
    * @param root root xml node
    */
-  void parseRootNode(const pugi::xml_node& root);
+  void parseRootNode(const pugi::xml_node& rootNode);
 
 public:
   std::string m_modelPath;                /// \var path to the model file

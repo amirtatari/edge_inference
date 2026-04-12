@@ -1,11 +1,11 @@
-<?xml version='1.0' encoding='UTF-8'>
+<?xml version='1.0' encoding='UTF-8' ?>
 <config>
   <taskType value='object_detection' />
-  <datasetDir value='/path/to/dataset' />
+  <datasetDir value='/workspace/examples/dataset' />
   <engine>
-    <modelPath value='/path/to/model' />
-    <classesPath value='/path/to/classes' />
-    <iou value='0.7'/>
-    <confidence value='0.6'/>
+    <modelPath value='/workspace/modelZoo/yolov5.tflite' />
+    <classesPath value='/workspace/modelZoo/yolov5.txt' />
+    <iou value='0.7' />
+    <confidence value='0.6' />
   </engine>
 </config>
