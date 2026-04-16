@@ -1,22 +1,41 @@
-#include "base.hpp"
+#include "../../utils/profiler/profiler.hpp"
+#include "postProcess.hpp"
 
-#include <spdlog/spdlog.h>
-#include <algorithm>
-#include <numeric>
-#include <fstream>
+// liteRt
+#include <tensorflow/lite/interpreter_builder.h>
+#include <tensorflow/lite/kernels/register.h>
+
+// opencv
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-bool AbsEngine::loadClassNames(const std::string& path)
+// logging
+#include <spdlog/spdlog.h>
+
+// stl
+#include <algorithm>
+#include <numeric>
+#include <fstream>
+#include <stdexcept>
+
+LiteRtEngine::LiteRtEngine(ModelArch arch, const std::string& modelPath, cosnt std::string& classesPath)
+  : m_flatBufferModel{nullptr}
+  , m_interpreter{nullptr}
+  , m_inputTensor{nullptr}
+  , m_outputTensor{nullptr}
 {
+  loadModel(modelPath);
+  loadClassNames(classesPath);
+}
+
+void LiteRtEngine::loadClassNames(const std::string& path)
+{
+  spdlog::info("LiteRtEngine::loadClassNames: loading classes from {}", path);
+
   std::ifstream file(path);
   if (!file.is_open())
-  {
-    spdlog::error("AbsEngine::loadClassNames: could not open file: {}", path);
-    return false;
-  }
+    throw std::runtime_error("AbsEngine::loadClassNames: could not open file " + path);
 
-  m_classNames.clear();
   std::string line;
   while (std::getline(file, line))
   {
@@ -26,310 +45,90 @@ bool AbsEngine::loadClassNames(const std::string& path)
       m_classNames.push_back(line);
   }
   file.close();
-
-  spdlog::info("AbsEngine::loadClassNames: loaded {} classes from {}", 
-    m_classNames.size(), path);
-  
-  return true;
+  if (m_calssNames.empty) 
+    throw std::runtime_error("AbsEngine::loadClassNames: no class name entries.")
 }
 
-/* ------------------------------- Post Processing ------------------------------------ */
-/* 
-  yolo v5 output shape: [1, num_boxes, 5 + num_classes]
-  box-format: [x_center, y_center, width, height, objectness, class_probs...]
-*/
- bool AbsEngine::yoloFivePostProc(void* data, int frameWidth, int frameHeight)
+void LiteRtEngine::loadModel(const std::string& path)
 {
-  const float* outputTensorData {static_cast<const float*>(data)};
-  const int num_classes {static_cast<int>(m_classNames.size())};
+  spdlog::info("LiteRtEngine::loadModel: loading model from {}", path);
 
-  std::vector<cv::Rect> boxes;
-  std::vector<float> scores;
-  std::vector<int> class_ids;
+  // load model from file
+  m_flatBufferModel = tflite::FlatBufferModel::BuildFromFile(path.c_str());
+  if (m_flatBufferModel == nullptr)
+    throw std::runtime_error("LiteRtEngine::loadModel: failed to build model from file!");
 
-  for (int i {0}; i < m_numBoxes; ++i)
-  {
-    const float objectness_score {outputTensorData[i * (num_classes + 5) + 4]};
-    if (objectness_score > m_config->m_confidenceThreshold)
-    {
-      const float* class_probabilities {&outputTensorData[i * (num_classes + 5) + 5]};
-      int best_class_id {-1};
-      float best_class_score {0.0f};
-      for (int j {0}; j < num_classes; ++j)
-      {
-        if (class_probabilities[j] > best_class_score)
-        {
-          best_class_score = class_probabilities[j];
-          best_class_id = j;
-        }
-      }
+  // build the interpreter
+  tflite::ops::builtin::BuiltinOpResolver resolver;
+  tflite::InterpreterBuilder builder(*m_flatBufferModel, resolver);
+  if (builder(&m_interpreter) != kTfLiteOk)
+    throw std::runtime_error("LiteRtEngine::loadModel: failed to build interpreter");
 
-      const float combined_score {objectness_score * best_class_score};
-      if (combined_score > m_config->m_confidenceThreshold)
-      {
-        const float x_center {outputTensorData[i * (num_classes + 5) + 0]};
-        const float y_center {outputTensorData[i * (num_classes + 5) + 1]};
-        const float width {outputTensorData[i * (num_classes + 5) + 2]};
-        const float height {outputTensorData[i * (num_classes + 5) + 3]};
+  if (m_interpreter->AllocateTensors() != kTfLiteOk)
+    throw std::runtime_error("LiteRtEngine::loadModel: failed to allocate tensors");
 
-        const int x1 {static_cast<int>((x_center - width / 2.0f) * frameWidth)};
-        const int y1 {static_cast<int>((y_center - height / 2.0f) * frameHeight)};
-        const int w {static_cast<int>(width * frameWidth)};
-        const int h {static_cast<int>(height * frameHeight)};
-
-        boxes.emplace_back(x1, y1, w, h);
-        scores.push_back(combined_score);
-        class_ids.push_back(best_class_id);
-      }
-    }
-  }
-
-  applyNms(boxes, scores, class_ids);
-  return true;
+  m_inputTensor = m_interpreter->tensor(m_interpreter->inputs()[0]);
+  m_outputTensor = m_interpreter->tensor(m_interpreter->outputs()[0]);
 }
 
-/*
-  yolo v8 output shape: [1, 4 + num_classes, num_boxes] (transposed)
-  box-format: [x_center, y_center, width, height, class_probs...]
-*/
-bool AbsEngine::yoloEightPostProc(void* data, int frameWidth, int frameHeight)
+float* LiteRtEngine::runInference(const cv::Mat& frame)
 {
-  const float* outputTensorData {static_cast<const float*>(data)};
-  const int num_classes {static_cast<int>(m_classNames.size())};
+  const int height {m_inputTensor->dims->data[1]};
+  const int width {m_inputTensor->dims->data[2]};
+  cv::Mat inputWrapper(height, width, CV_32FC3, m_interpreter->typed_input_tensor<float>(0));
 
-  std::vector<cv::Rect> boxes;
-  std::vector<float> scores;
-  std::vector<int> class_ids;
-
-  // yolov8 output is transposed: [1, 4 + num_classes, num_boxes]
-  for (int i {0}; i < m_numBoxes; ++i)
+  // check the frame size with model size
+  if (frame.cols == width && frame.rows == height)
+        frame.convertTo(inputWrapper, CV_32FC3, 1.0f / 255.0f);
+  else 
   {
-    int best_class_id {-1};
-    float best_class_score {0.0f};
-
-    for (int j {0}; j < num_classes; ++j)
-    {
-      // access transposed class probabilities
-      const float score {outputTensorData[(4 + j) * m_numBoxes + i]};
-      if (score > best_class_score)
-      {
-        best_class_score = score;
-        best_class_id = j;
-      }
-    }
-
-    if (best_class_score > m_config->m_confidenceThreshold)
-    {
-      const float x_center {outputTensorData[0 * m_numBoxes + i]};
-      const float y_center {outputTensorData[1 * m_numBoxes + i]};
-      const float width {outputTensorData[2 * m_numBoxes + i]};
-      const float height {outputTensorData[3 * m_numBoxes + i]};
-
-      const int x1 {static_cast<int>((x_center - width / 2.0f) * frameWidth)};
-      const int y1 {static_cast<int>((y_center - height / 2.0f) * frameHeight)};
-      const int w {static_cast<int>(width * frameWidth)};
-      const int h {static_cast<int>(height * frameHeight)};
-
-      boxes.emplace_back(x1, y1, w, h);
-      scores.push_back(best_class_score);
-      class_ids.push_back(best_class_id);
-    }
+    static cv::Mat staticResized; 
+    cv::resize(frame, staticResized, cv::Size(width, height));
+    staticResized.convertTo(inputWrapper, CV_32FC3, 1.0f / 255.0f);
   }
 
-  applyNms(boxes, scores, class_ids);
-  return true;
+  // run inference
+  return m_interpreter->Invoke() != kTfLiteOk ? nullptr : m_outputTensor->data.f;
 }
 
-/*
-  yolo v10 is nms-free, output shape: [1, num_boxes, 6] 
-  box-format: [xmin, ymin, xmax, ymax, score, class_id]
-*/
-bool AbsEngine::yoloTenPostProc(void* data, int frameWidth, int frameHeight)
+std::optional<modelIo::DetectedObjects> LiteRtEngine::runObjectDetection(const cv::Mat& frame)
 {
-  const float* outputTensorData {static_cast<const float*>(data)};
-  // yolov10 is nms-free, typically outputs [1, 300, 6] 
-  // format: [xmin, ymin, xmax, ymax, score, class_id]
+  // run inference and get the output
+  float* outputData {runInference(frame)};
+  if (outputData == nullptr) return std::nullopt;
+  const int numBoxes {m_outputTensor->dims->data[1]};
 
-  m_odOutput.m_classProbabilities.clear();
-  m_odOutput.m_firstPoints.clear();
-  m_odOutput.m_secondPoints.clear();
-  m_odOutput.m_classNameIdxs.clear();
-
-  for (int i {0}; i < m_numBoxes; ++i)
+  // post process methods
+  switch (m_arch)
   {
-    const float score {outputTensorData[i * 6 + 4]};
-    if (score > m_config->m_confidenceThreshold)
-    {
-      const float x1 {outputTensorData[i * 6 + 0]};
-      const float y1 {outputTensorData[i * 6 + 1]};
-      const float x2 {outputTensorData[i * 6 + 2]};
-      const float y2 {outputTensorData[i * 6 + 3]};
-      const int class_id {static_cast<int>(outputTensorData[i * 6 + 5])};
+    using enum ModelArch;
+    case YOLO5:
+      return PostProcess::yoloFivePostProc(numBoxes, outputData, frame.cols, frame.rows);
 
-      m_odOutput.m_classProbabilities.push_back(score);
-      m_odOutput.m_firstPoints.emplace_back(static_cast<int>(x1 * frameWidth), 
-                                            static_cast<int>(y1 * frameHeight));
-      m_odOutput.m_secondPoints.emplace_back(static_cast<int>(x2 * frameWidth), 
-                                             static_cast<int>(y2 * frameHeight));
-      m_odOutput.m_classNameIdxs.push_back(static_cast<std::size_t>(class_id));
-    }
+    case YOLOV8:
+      return PostProcess::yoloEightPostProc(numBoxes, outputData, frame.cols, frame.rows);
+
+    case YOLO10:
+      return PostProcess::yoloTenPostProc(numBoxes, outputData, frame.cols, frame.rows);
+
+    case SSD:
+      return PostProcess::ssdPostProc(numBoxes, outputData, frame.cols, frame.rows);
   }
+
+  return std::nullopt;
+}
+
+std::optional<modelIo::DetectedSemantics> LiteRtEngine::runSemanticDetection(const cv::Mat& frame)
+{
+  float* outputData {runInference(frame)};
+  if (outputData == nullptr) return std::nullopt;
+
+  // get output tensor dimensions
+  const int outH {m_outputTensor->dims->data[1]};
+  const int outW {m_outputTensor->dims->data[2]};
+  const int numClasses {m_outputTensor->dims->data[3]};
+
+  semanticPostProc(outputData, outW, outH, numClasses, frame.cols, frame.rows);
 
   return true;
-}
-
-float AbsEngine::calculateIoU(const cv::Rect& box1, const cv::Rect& box2)
-{
-  const int x1 {std::max(box1.x, box2.x)};
-  const int y1 {std::max(box1.y, box2.y)};
-  const int x2 {std::min(box1.x + box1.width, box2.x + box2.width)};
-  const int y2 {std::min(box1.y + box1.height, box2.y + box2.height)};
-        
-  const int intersection_area {std::max(0, x2 - x1) * std::max(0, y2 - y1)};
-  const int box1_area {box1.width * box1.height};
-  const int box2_area {box2.width * box2.height};
-  const float union_area {static_cast<float>(
-    box1_area + box2_area - intersection_area)
-  };
-
-  return (union_area == 0) ? 0.0f : static_cast<float>(intersection_area) / union_area;
-}
-
-void AbsEngine::applyNms(const std::vector<cv::Rect>& boxes, 
-                        const std::vector<float>& scores,
-                        const std::vector<int>& classIds)
-{
-  std::vector<int> nms_indices;
-  if (!scores.empty())
-  {
-    std::vector<int> indices(scores.size());
-    std::iota(indices.begin(), indices.end(), 0);
-
-    std::sort(indices.begin(), indices.end(),
-              [&](int a, int b) { return scores[a] > scores[b]; });
-
-    while (!indices.empty())
-    {
-      int current_idx {indices[0]};
-      nms_indices.push_back(current_idx);
-
-      std::vector<int> remaining_indices;
-      for (size_t i {1}; i < indices.size(); ++i)
-      {
-        int other_idx {indices[i]};
-
-        const cv::Rect& box1 {boxes[current_idx]};
-        const cv::Rect& box2 {boxes[other_idx]};
-
-        if (calculateIoU(box1, box2) < m_config->m_iouThreshold)
-          remaining_indices.push_back(other_idx);
-      }
-      indices = std::move(remaining_indices);
-    }
-  }
-
-  m_odOutput.m_classProbabilities.clear();
-  m_odOutput.m_firstPoints.clear();
-  m_odOutput.m_secondPoints.clear();
-  m_odOutput.m_classNameIdxs.clear();
-
-  for (int idx : nms_indices)
-  {
-    const cv::Rect& box {boxes[idx]};
-    m_odOutput.m_classProbabilities.push_back(scores[idx]);
-    m_odOutput.m_firstPoints.emplace_back(box.x, box.y);
-    m_odOutput.m_secondPoints.emplace_back(box.x + box.width, box.y + box.height);
-    m_odOutput.m_classNameIdxs.push_back(static_cast<std::size_t>(classIds[idx]));
-  }
-}
-
-/*
-  ssd output shape: [1, num_boxes, 7]
-  box-format: [image_id, class_id, score, xmin, ymin, xmax, ymax]
-*/
-bool AbsEngine::ssdPostProc(void* data, int frameWidth, int frameHeight)
-{
-  const float* outputTensorData {static_cast<const float*>(data)};
-
-  std::vector<cv::Rect> boxes;
-  std::vector<float> scores;
-  std::vector<int> class_ids;
-
-  for (int i {0}; i < m_numBoxes; ++i)
-  {
-    const float score {outputTensorData[i * 7 + 2]};
-    if (score > m_config->m_confidenceThreshold)
-    {
-      const int class_id {static_cast<int>(outputTensorData[i * 7 + 1])};
-      const float xmin {outputTensorData[i * 7 + 3] * frameWidth};
-      const float ymin {outputTensorData[i * 7 + 4] * frameHeight};
-      const float xmax {outputTensorData[i * 7 + 5] * frameWidth};
-      const float ymax {outputTensorData[i * 7 + 6] * frameHeight};
-
-      boxes.emplace_back(static_cast<int>(xmin), static_cast<int>(ymin), 
-                         static_cast<int>(xmax - xmin), static_cast<int>(ymax - ymin));
-      scores.push_back(score);
-      class_ids.push_back(class_id);
-    }
-  }
-
-  applyNms(boxes, scores, class_ids);
-  return true;
-}
-
-bool AbsEngine::init(Config* config)
-{
-  m_config = config;
-  if (!loadModel(m_config->m_modelPath))
-  {
-    spdlog::error("AbsEngine::init: could not load model from path: {}", 
-      m_config->m_modelPath);
-    return false;
-  }
-
-  if (!loadClassNames(m_config->m_classNamesPath))
-  {
-    spdlog::error("AbsEngine::init: could not load class names from path: {}", 
-      m_config->m_classNamesPath);
-    return false;
-  }
-
-  return true;
-}
-
-void AbsEngine::semanticPostProc(void* data, int outW, int outH, int numClasses,
-                                  int frameWidth, int frameHeight)
-{
-  const float* outputData {static_cast<const float*>(data)};
-  
-  // reserve memory for performance
-  m_semantics.m_pixels.reserve(outH * outW);
-  m_semantics.m_classNameIdxs.reserve(outH * outW);
-
-  for (int y {0}; y < outH; ++y)
-  {
-    for (int x {0}; x < outW; ++x)
-    {
-      // iterate thorugh all classes to find the max probability
-      float maxProb {-1.0f};
-      int maxIdx {-1};
-
-      for (int c {0}; c < numClasses; ++c)
-      {
-        float prob {outputData[(y * outW + x) * numClasses + c]};
-        if (prob > maxProb)
-        {
-          maxProb = prob;
-          maxIdx = c;
-        }
-      }
-
-      // scale points back to original frame size
-      const int origX {static_cast<int>(static_cast<float>(x) / outW * frameWidth)};
-      const int origY {static_cast<int>(static_cast<float>(y) / outH * frameHeight)};
-
-      m_semantics.m_pixels.emplace_back(origX, origY);
-      m_semantics.m_classNameIdxs.push_back(static_cast<std::size_t>(maxIdx));
-    }
-  }
 }
