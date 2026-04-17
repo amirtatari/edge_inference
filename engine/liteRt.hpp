@@ -24,7 +24,7 @@ enum class ModelArch : int {SSD, YOLO5, YOLOV8, YOLO10};
 /**
  * @brief Data structure of object detecion output 
  */
-struct DetectedObjects
+class DetectedObjects
 {
   std::vector<float> m_classProbabilities;         /// \var class probabilities
   std::vector<cv::Point> m_firstPoints;            /// \var bbox top-left points
@@ -43,10 +43,13 @@ struct DetectedSemantics
 
 }; // namespace modelIo
 
+typedef OptDetectedObjects std::optional<modelIo::DetectedObjects>;
+typedef OptDetectedSemantics std::optional<modelIo::DetectedSemantics>;
+
 /**
  * @brief Abstract base class for inference engines
  */
-class LiteRtEngine
+class LiteRtEngineBase
 {
   std::unique_ptr<tflite::FlatBufferModel> m_flatBufferModel {nullptr};
   std::unique_ptr<tflite::Interpreter> m_interpreter {nullptr};
@@ -54,6 +57,8 @@ class LiteRtEngine
   TfLiteTensor* m_outputTensor {nullptr};
   std::vector<std::string> m_classNames;          /// \var class names    
   modelIo::ModelArch m_arch;                      /// \var model architecture
+  float m_confidenceThresh;                       /// \var confidence threshold
+  float m_iouThresh;                              /// \var iou threshold
 
   /**
    * @brief loads the model from the given binary path
@@ -74,6 +79,28 @@ class LiteRtEngine
    */
   float* runInference(const cv::Mat& frame);
 
+  /**
+   * @brief
+   */
+  struct RawDetections 
+  {
+    float* m_outputTensorData; 
+    int m_frameWidth;
+    int m_frameHeight; 
+  };
+
+  /**
+   * @brief contains post processing methods for different model architecures
+   */
+  class PostProccessing 
+  {
+    public:
+    static OptDetectedObjects yoloFive(const RawDetections& rawData, int numBoxes) const;
+    static OptDetectedObjects yoloEight(const RawDetections& rawData, int numBoxes) const;
+    static OptDetectedObjects yoloTen(const RawDetections& rawData, int numBoxes) const;
+    static OptDetectedSemantics semanticSegment(const RawDetections& rawData, int numBoxes) const;
+  };
+
 public:
     explicit LiteRtEngine(ModelArch arch, const std::string& modelPath, cosnt std::string& classesPath);
     LiteRtEngine(const LiteRtEngine&) = delete;
@@ -86,18 +113,14 @@ public:
    * @param frame input frame
    * @return true if successful, false otherwise
    */
-  std::optional<modelIo::DetectedObjects> runObjectDetection(const cv::Mat& frame);
+  OptDetectedObjects runObjectDetection(const cv::Mat& frame);
 
   /**
    * @brief runs semantic segmentation on the input frame
    * @param frame input frame
    * @return true if successful, false otherwise
    */
-  std::optional<modelIo::DetectedSemantics> runSemanticDetection(const cv::Mat& frame);
+  OptDetectedSemantics runSemanticDetection(const cv::Mat& frame);
 };
 
-
-
-
-
-
+class YoloV8

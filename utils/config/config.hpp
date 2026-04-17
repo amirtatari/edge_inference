@@ -9,12 +9,6 @@
 enum class TaskType : int {OBJECT_DETECTION, SEMANTIC_SEGMENTATION};
 
 /**
- * @brief defines what kind of model is used and according to that what kind 
- * of post processing function we need
- */
-enum class ModelArch : int {SSD, YOLO5, YOLOV8, YOLO10};
-
-/**
  * @brief holds the configuration parameters
  */
 class Config

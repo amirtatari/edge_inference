@@ -4,6 +4,7 @@
 // liteRt
 #include <tensorflow/lite/interpreter_builder.h>
 #include <tensorflow/lite/kernels/register.h>
+#
 
 // opencv
 #include <opencv2/core.hpp>
@@ -103,16 +104,16 @@ std::optional<modelIo::DetectedObjects> LiteRtEngine::runObjectDetection(const c
   {
     using enum ModelArch;
     case YOLO5:
-      return PostProcess::yoloFivePostProc(numBoxes, outputData, frame.cols, frame.rows);
+      return PostProcess::yoloFivePostProc(outputData, frame.cols, frame.rows, numBoxes);
 
     case YOLOV8:
-      return PostProcess::yoloEightPostProc(numBoxes, outputData, frame.cols, frame.rows);
+      return PostProcess::yoloEightPostProc(outputData, frame.cols, frame.rows, numBoxes);
 
     case YOLO10:
-      return PostProcess::yoloTenPostProc(numBoxes, outputData, frame.cols, frame.rows);
+      return PostProcess::yoloTenPostProc(outputData, frame.cols, frame.rows, numBoxes);
 
     case SSD:
-      return PostProcess::ssdPostProc(numBoxes, outputData, frame.cols, frame.rows);
+      return PostProcess::ssdPostProc(outputData, frame.cols, frame.rows, numBoxes);
   }
 
   return std::nullopt;
